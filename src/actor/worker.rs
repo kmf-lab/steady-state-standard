@@ -19,10 +19,13 @@ pub async fn run(context: SteadyContext
                  , heartbeat: SteadyRx<u64> //the type can be any struct or primitive or enum...
                  , generator: SteadyRx<u32>
                  , logger: SteadyTx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
-    internal_behavior(context.into_monitor([], [])).await
+    internal_behavior(context.into_monitor([&heartbeat, &generator], [&logger]), heartbeat, generator, logger).await
 }
 
-async fn internal_behavior<C: SteadyCommander>(mut cmd: C) -> Result<(),Box<dyn Error>> {
+async fn internal_behavior<C: SteadyCommander>(mut cmd: C
+                                               , heartbeat: SteadyRx<u64> //the type can be any struct or primitive or enum...
+                                               , generator: SteadyRx<u32>
+                                               , logger: SteadyTx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
 
     let args = cmd.args::<crate::MainArg>().expect("unable to downcast");
     let rate = Duration::from_millis(args.rate_ms);

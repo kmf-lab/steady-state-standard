@@ -2,12 +2,13 @@ use std::error::Error;
 use std::time::Duration;
 use log::*;
 use steady_state::*;
+use crate::actor::worker::FizzBuzzMessage;
 
-pub async fn run(context: SteadyContext, arc: SteadyRx<_>) -> Result<(),Box<dyn Error>> {
-    internal_behavior(context.into_monitor([], [])).await
+pub async fn run(context: SteadyContext, fizz_buzz: SteadyRx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
+    internal_behavior(context.into_monitor([&fizz_buzz], []), fizz_buzz).await
 }
 
-async fn internal_behavior<C: SteadyCommander>(mut cmd: C) -> Result<(),Box<dyn Error>> {
+async fn internal_behavior<C: SteadyCommander>(mut cmd: C, fizz_buzz: SteadyRx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
 
     let args = cmd.args::<crate::MainArg>().expect("unable to downcast");
     let rate = Duration::from_millis(args.rate_ms);

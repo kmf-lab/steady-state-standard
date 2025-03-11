@@ -3,11 +3,11 @@ use std::time::Duration;
 use log::*;
 use steady_state::*;
 
-pub async fn run(context: SteadyContext, arc: SteadyTx<u32>) -> Result<(),Box<dyn Error>> {
-    internal_behavior(context.into_monitor([], [])).await
+pub async fn run(context: SteadyContext, generated: SteadyTx<u32>) -> Result<(),Box<dyn Error>> {
+    internal_behavior(context.into_monitor([], [&generated]), generated).await
 }
 
-async fn internal_behavior<C: SteadyCommander>(mut cmd: C) -> Result<(),Box<dyn Error>> {
+async fn internal_behavior<C: SteadyCommander>(mut cmd: C, generated: SteadyTx<u32> ) -> Result<(),Box<dyn Error>> {
 
     let args = cmd.args::<crate::MainArg>().expect("unable to downcast");
     let rate = Duration::from_millis(args.rate_ms);
