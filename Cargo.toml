@@ -8,3 +8,6 @@ steady_state     = "0.1.2"
 log              = "0.4.26"
 clap             = { version = "4.5.32", features = ["derive"] }
 
+[dev-dependencies]
+async-std = "1.13.0"
+

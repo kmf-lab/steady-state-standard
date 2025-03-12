@@ -25,20 +25,21 @@ fn main() {
 
     let actor_builder = graph.actor_builder().with_mcpu_avg();
 
+    let state = new_state();
     actor_builder.with_name("heartbeat")
-         .build(|context| { actor::heartbeat::run(context, heartbeat_tx.clone()) }
+         .build( move |context| { actor::heartbeat::run(context, heartbeat_tx.clone(), state.clone()) }
                , &mut Threading::Spawn);
 
     actor_builder.with_name("generator")
-        .build(|context| { actor::generator::run(context, generator_tx.clone()) }
+        .build( move |context| { actor::generator::run(context, generator_tx.clone()) }
                , &mut Threading::Spawn);
 
     actor_builder.with_name("worker")
-        .build(|context| { actor::worker::run(context,heartbeat_rx.clone(), generator_rx.clone(), worker_tx.clone()) }
+        .build( move |context| { actor::worker::run(context,heartbeat_rx.clone(), generator_rx.clone(), worker_tx.clone()) }
                , &mut Threading::Spawn);
 
     actor_builder.with_name("logger")
-        .build(|context| { actor::logger::run(context, worker_rx.clone()) }
+        .build( move |context| { actor::logger::run(context, worker_rx.clone()) }
                , &mut Threading::Spawn);
 
 
