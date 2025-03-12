@@ -67,7 +67,7 @@ fn main() {
 //     full batch usage, skip iterator ?
 //     zero copy???visitor?
 
-// remote will have
+// distributed will have
 //     stream demo between boxes
 //
 
