@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::ops::DerefMut;
 use std::time::Duration;
 use log::info;
 use log::error;
@@ -23,9 +24,9 @@ pub async fn run(context: SteadyContext, heartbeat_tx: SteadyTx<u64>, state: Ste
         let mut heartbeat_tx = heartbeat_tx.lock().await;
         while cmd.is_running(&mut ||heartbeat_tx.mark_closed()) {
             // in main use graph.sidechannel_director node_call(msg,"heartbeat")
-            if !responder.echo_responder(&mut cmd,&mut heartbeat_tx).await {
+            if !responder.echo_responder(&mut cmd, &mut heartbeat_tx).await {
                 //this failure should not happen
-                log.error("Unable to send simulated heartbeat for graph test");
+                error!("Unable to send simulated heartbeat for graph test");
             }
         }
     }
@@ -36,21 +37,22 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C, heartbeat_tx: SteadyT
 
     let args = cmd.args::<crate::MainArg>().expect("unable to downcast");
     let rate = Duration::from_millis(args.rate_ms);
-    let mut state = cmd.steady_state(state, || HeartbeatState{ count: 0});
+    let mut state = state.lock(|| HeartbeatState{ count: 0}).await;
+    if let Some(state) = state.as_mut() {
+        let mut heartbeat_tx = heartbeat_tx.lock().await;
+        //loop is_running until shutdown signal then we call the closure which closes our outgoing Tx
+        while cmd.is_running(|| heartbeat_tx.mark_closed()) {
+            await_for_all!(cmd.wait_periodic(rate),
+                           cmd.wait_vacant(&mut heartbeat_tx, 1));
 
-    let mut heartbeat_tx = heartbeat_tx.lock().await;
-    //loop is_running until shutdown signal then we call the closure which closes our outgoing Tx
-    while cmd.is_running(|| heartbeat_tx.mark_closed()) {
-        await_for_all!(cmd.wait_periodic(rate),
-                       cmd.wait_vacant(&mut heartbeat_tx, 1));
+            cmd.try_send(&mut heartbeat_tx, state.count)
+                .expect("room to write"); //logic error which will not happen due to wait_avail above.
 
-        cmd.try_send(&mut heartbeat_tx, state.count )
-            .expect("room to write"); //logic error which will not happen due to wait_avail above.
-
-        state.count += 1;
-        if  args.beats == state.count {
-            log.info("request graph stop");
-            cmd.request_graph_stop();
+            state.count += 1;
+            if args.beats == state.count {
+                info!("request graph stop");
+                cmd.request_graph_stop();
+            }
         }
     }
     Ok(())
@@ -74,10 +76,11 @@ pub(crate) mod tests {
             .with_capacity(500)
             .build();
 
+        let state = new_state();
         graph.actor_builder()
             .with_name("UnitTest")
             .build_spawn(move |context|
-                internal_behavior(context, heartbeat_tx.clone())
+                   internal_behavior(context, heartbeat_tx.clone(), state.clone())
             );
 
         graph.start(); //startup the graph
@@ -89,8 +92,8 @@ pub(crate) mod tests {
 
         let vec = heartbeat_rx.testing_take().await;
 
-        assert_eq!(vec[0].value, 0, "vec: {:?}", vec);
-        assert_eq!(vec[1].value, 1, "vec: {:?}", vec);
+        assert_eq!(vec[0], 0, "vec: {:?}", vec);
+        assert_eq!(vec[1], 1, "vec: {:?}", vec);
     }
 }
 

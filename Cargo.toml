@@ -4,10 +4,12 @@ version = "0.1.2"
 edition = "2021"
 
 [dependencies]
-steady_state     = "0.1.2"
+#steady_state     = "0.1.3"
+steady_state     = { path = "../../kmf-lab/steady-state-stack/core", features = ["proactor_nuclei", "telemetry_server_builtin"], default-features = false }
+
 log              = "0.4.26"
 clap             = { version = "4.5.32", features = ["derive"] }
 
 [dev-dependencies]
-async-std = "1.13.0"
+async-std        = {  version = "1.13.0", features = ["attributes"] }  # for async unit testing only,
 
