@@ -1,0 +1,10 @@
+[package]
+name = "standard"
+version = "0.1.2"
+edition = "2021"
+
+[dependencies]
+steady_state     = "0.1.2"
+log              = "0.4.26"
+clap             = { version = "4.5.32", features = ["derive"] }
+
