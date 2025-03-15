@@ -9,6 +9,7 @@ pub(crate) mod actor {
    pub(crate) mod generator;
    pub(crate) mod worker;
    pub(crate) mod logger;
+    mod simulate_external_behavior;
 }
 
 fn main() {
@@ -30,8 +31,9 @@ fn main() {
          .build( move |context| { actor::heartbeat::run(context, heartbeat_tx.clone(), state.clone()) }
                , &mut Threading::Spawn);
 
+    let state = new_state();
     actor_builder.with_name("generator")
-        .build( move |context| { actor::generator::run(context, generator_tx.clone()) }
+        .build( move |context| { actor::generator::run(context, generator_tx.clone(), state.clone()) }
                , &mut Threading::Spawn);
 
     actor_builder.with_name("worker")
@@ -48,6 +50,10 @@ fn main() {
     // your graph is running here until actor calls graph stop
     graph.block_until_stopped(std::time::Duration::from_secs(1));
 }
+
+
+//tests
+
 
 //standard needs single message passing
 //               graph test

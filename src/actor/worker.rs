@@ -40,5 +40,51 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C
         }
     }
     Ok(())
+}
 
+#[cfg(test)]
+pub(crate) mod worker_tests {
+    use std::time::Duration;
+    use steady_state::*;
+    use super::*;
+
+    #[async_std::test]
+    async fn test_worker() {
+        let mut graph = GraphBuilder::for_testing()
+            .with_telemetry_metric_features(false) //skip this???
+            .build(());
+
+        let (generate_tx, generate_rx) = graph.channel_builder()
+            .with_capacity(500)
+            .build();
+
+        let (hearthbeat_tx, hearthbeat_rx) = graph.channel_builder()
+            .with_capacity(500)
+            .build();
+
+        let (logger_tx, logger_rx) = graph.channel_builder()
+            .with_capacity(500)
+            .build();
+
+
+
+        let state = new_state();
+        // graph.actor_builder()
+        //     .with_name("UnitTest")
+        //     .build_spawn(move |context|
+        //         internal_behavior(context, generate_tx.clone(), state.clone())
+        //     );
+
+        graph.start(); //startup the graph
+
+        Delay::new(Duration::from_millis(100)).await;
+
+        graph.request_stop(); //our actor has no input so it immediately stops upon this request
+        graph.block_until_stopped(Duration::from_secs(1));
+
+        let vec = generate_rx.testing_take().await;
+
+        assert_eq!(vec[0], 0, "vec: {:?}", vec);
+        assert_eq!(vec[1], 1, "vec: {:?}", vec);
+    }
 }

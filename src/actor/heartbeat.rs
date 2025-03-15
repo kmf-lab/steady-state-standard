@@ -4,6 +4,8 @@ use std::time::Duration;
 use log::info;
 use log::error;
 use steady_state::*;
+use steady_state::simulate_edge::{external_behavior, Simulate};
+
 
 /// by keeping the count in steady state this will not be lost or reset if this actor should panic
 pub(crate) struct HeartbeatState {
@@ -13,24 +15,13 @@ pub(crate) struct HeartbeatState {
 /// this is the normal entry point for our actor in the graph using its normal implementation
 #[cfg(not(test))]
 pub async fn run(context: SteadyContext, heartbeat_tx: SteadyTx<u64>, state: SteadyState<HeartbeatState>) -> Result<(),Box<dyn Error>> {
-    internal_behavior(context.into_monitor([], [& heartbeat_tx]), heartbeat_tx, state).await
+    internal_behavior(context.into_monitor([], [&heartbeat_tx]), heartbeat_tx, state).await
 }
 
 /// this is the test entry point so graph testing can inject values rather than use the normal implementation
 #[cfg(test)]
 pub async fn run(context: SteadyContext, heartbeat_tx: SteadyTx<u64>, state: SteadyState<HeartbeatState>) -> Result<(),Box<dyn Error>> {
-    let mut cmd =  context.into_monitor([], [& heartbeat_tx]);
-    if let Some(responder) = cmd.sidechannel_responder() {
-        let mut heartbeat_tx = heartbeat_tx.lock().await;
-        while cmd.is_running(&mut ||heartbeat_tx.mark_closed()) {
-            // in main use graph.sidechannel_director node_call(msg,"heartbeat")
-            if !responder.echo_responder(&mut cmd, &mut heartbeat_tx).await {
-                //this failure should not happen
-                error!("Unable to send simulated heartbeat for graph test");
-            }
-        }
-    }
-    Ok(())
+    external_behavior(Simulate::Echo(context.into_monitor([], [&heartbeat_tx]),heartbeat_tx)).await
 }
 
 async fn internal_behavior<C: SteadyCommander>(mut cmd: C, heartbeat_tx: SteadyTx<u64>, state: SteadyState<HeartbeatState> ) -> Result<(),Box<dyn Error>> {
@@ -67,13 +58,13 @@ pub(crate) mod tests {
     use super::*;
 
     #[async_std::test]
-    async fn test_simple_process() {
+    async fn test_heartbeat() {
         let mut graph = GraphBuilder::for_testing()
             .with_telemetry_metric_features(false) //skip this???
             .build(());
 
         let (heartbeat_tx, heartbeat_rx) = graph.channel_builder()
-            .with_capacity(500)
+            .with_capacity(500) // default this?
             .build();
 
         let state = new_state();
@@ -97,3 +88,5 @@ pub(crate) mod tests {
     }
 }
 
+//TODO: new apps,  llm infra builder - curl ebp clip,   ,remote compile,   memoizezed prompt clipboard, pii check.
+//      can I build on windows??

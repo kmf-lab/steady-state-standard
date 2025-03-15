@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 #steady_state     = "0.1.3"
-steady_state     = { path = "../../kmf-lab/steady-state-stack/core", features = ["proactor_nuclei", "telemetry_server_builtin"], default-features = false }
+steady_state     = { path = "../steady-state-stack/core", features = ["proactor_nuclei", "telemetry_server_builtin"], default-features = false }
 
 log              = "0.4.26"
 clap             = { version = "4.5.32", features = ["derive"] }
