@@ -17,7 +17,7 @@ pub async fn run(context: SteadyContext, generated_tx: SteadyTx<u32>, state: Ste
 
 #[cfg(test)]
 pub async fn run(context: SteadyContext, generated_tx: SteadyTx<u64>, state: SteadyState<HeartbeatState>) -> Result<(),Box<dyn Error>> {
-    external_behavior(context, Simulate::Echo(context.into_monitor([], [&generated_tx]), generated_tx)).await
+    external_behavior(Simulate::Echo(context.into_monitor([], [&generated_tx]), generated_tx)).await
 }
 
 async fn internal_behavior<C: SteadyCommander>(mut cmd: C, generated: SteadyTx<u32>, state: SteadyState<GeneratorState> ) -> Result<(),Box<dyn Error>> {

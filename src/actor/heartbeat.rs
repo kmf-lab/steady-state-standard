@@ -36,8 +36,8 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C, heartbeat_tx: SteadyT
             await_for_all!(cmd.wait_periodic(rate),
                            cmd.wait_vacant(&mut heartbeat_tx, 1));
 
-            cmd.try_send(&mut heartbeat_tx, state.count)
-                .expect("room to write"); //logic error which will not happen due to wait_avail above.
+            let _ = cmd.try_send(&mut heartbeat_tx, state.count);
+
 
             state.count += 1;
             if args.beats == state.count {
