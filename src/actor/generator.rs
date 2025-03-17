@@ -3,8 +3,8 @@ use std::time::Duration;
 use log::*;
 use steady_state::*;
 use steady_state::simulate_edge::{external_behavior, Simulate};
+use steady_state::simulate_edge::Behavior::Echo;
 use crate::actor::heartbeat::HeartbeatState;
-use crate::actor::simulate_external_behavior::{external_behavior, Simulate};
 
 pub(crate) struct GeneratorState {
     pub(crate) value: u32
@@ -17,7 +17,8 @@ pub async fn run(context: SteadyContext, generated_tx: SteadyTx<u32>, state: Ste
 
 #[cfg(test)]
 pub async fn run(context: SteadyContext, generated_tx: SteadyTx<u64>, state: SteadyState<HeartbeatState>) -> Result<(),Box<dyn Error>> {
-    external_behavior(Simulate::Echo(context.into_monitor([], [&generated_tx]), generated_tx)).await
+    context.into_monitor([], [&generated_tx])
+           .simulated_behavior([&Echo(generated_tx)]).await
 }
 
 async fn internal_behavior<C: SteadyCommander>(mut cmd: C, generated: SteadyTx<u32>, state: SteadyState<GeneratorState> ) -> Result<(),Box<dyn Error>> {
@@ -65,6 +66,7 @@ pub(crate) mod generator_tests {
         graph.request_stop(); //our actor has no input so it immediately stops upon this request
         graph.block_until_stopped(Duration::from_secs(1));
 
+        // TODO: we need SteadyTX. assert_eq! type logic for what is on the stream.
         let vec = generate_rx.testing_take().await;
 
         assert_eq!(vec[0], 0, "vec: {:?}", vec);

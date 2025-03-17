@@ -2,7 +2,7 @@ use std::error::Error;
 use std::time::Duration;
 use log::*;
 use steady_state::*;
-use steady_state::simulate_edge::{external_behavior, Simulate};
+use steady_state::simulate_edge::Behavior::{Echo, Equals};
 use crate::actor::heartbeat::HeartbeatState;
 use crate::actor::worker::FizzBuzzMessage;
 
@@ -13,7 +13,8 @@ pub async fn run(context: SteadyContext, fizz_buzz_rx: SteadyRx<FizzBuzzMessage>
 
 #[cfg(test)]
 pub async fn run(context: SteadyContext, fizz_buzz_rx: SteadyRx<FizzBuzzMessage>, state: SteadyState<HeartbeatState>) -> Result<(),Box<dyn Error>> {
-    external_behavior(Simulate::Equals(context.into_monitor([&fizz_buzz_rx], []), fizz_buzz_rx)).await
+    context.into_monitor([&fizz_buzz_rx], [])
+           .simulated_behavior([&Equals(fizz_buzz_rx)]).await
 }
 
 async fn internal_behavior<C: SteadyCommander>(mut cmd: C, fizz_buzz: SteadyRx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {

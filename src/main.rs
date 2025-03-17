@@ -9,7 +9,6 @@ pub(crate) mod actor {
    pub(crate) mod generator;
    pub(crate) mod worker;
    pub(crate) mod logger;
-    mod simulate_external_behavior;
 }
 
 fn main() {

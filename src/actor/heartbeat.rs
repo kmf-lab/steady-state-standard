@@ -5,7 +5,7 @@ use log::info;
 use log::error;
 use steady_state::*;
 use steady_state::simulate_edge::{external_behavior, Simulate};
-
+use steady_state::simulate_edge::Behavior::Echo;
 
 /// by keeping the count in steady state this will not be lost or reset if this actor should panic
 pub(crate) struct HeartbeatState {
@@ -21,7 +21,8 @@ pub async fn run(context: SteadyContext, heartbeat_tx: SteadyTx<u64>, state: Ste
 /// this is the test entry point so graph testing can inject values rather than use the normal implementation
 #[cfg(test)]
 pub async fn run(context: SteadyContext, heartbeat_tx: SteadyTx<u64>, state: SteadyState<HeartbeatState>) -> Result<(),Box<dyn Error>> {
-    external_behavior(Simulate::Echo(context.into_monitor([], [&heartbeat_tx]),heartbeat_tx)).await
+    context.into_monitor([], [&heartbeat_tx])
+           .simulated_behavior([&Echo(heartbeat_tx)]).await
 }
 
 async fn internal_behavior<C: SteadyCommander>(mut cmd: C, heartbeat_tx: SteadyTx<u64>, state: SteadyState<HeartbeatState> ) -> Result<(),Box<dyn Error>> {
