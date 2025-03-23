@@ -60,15 +60,15 @@ pub(crate) mod worker_tests {
 
         let (hearthbeat_tx, hearthbeat_rx) = graph.channel_builder()
             .with_capacity(500)
-            .build();
+            .build::<u32>();
 
         let (logger_tx, logger_rx) = graph.channel_builder()
             .with_capacity(500)
-            .build();
+            .build::<FizzBuzzMessage>();
 
 
 
-        let state = new_state();
+        //let state = new_state();
         // graph.actor_builder()
         //     .with_name("UnitTest")
         //     .build_spawn(move |context|
@@ -82,7 +82,7 @@ pub(crate) mod worker_tests {
         graph.request_stop(); //our actor has no input so it immediately stops upon this request
         graph.block_until_stopped(Duration::from_secs(1));
 
-        let vec = generate_rx.testing_take().await;
+        let vec:Vec<u32> = generate_rx.testing_take().await;
 
         assert_eq!(vec[0], 0, "vec: {:?}", vec);
         assert_eq!(vec[1], 1, "vec: {:?}", vec);

@@ -2,27 +2,22 @@ use std::error::Error;
 use std::time::Duration;
 use log::*;
 use steady_state::*;
-use steady_state::simulate_edge::{external_behavior, Simulate};
-use steady_state::simulate_edge::Behavior::Echo;
 use crate::actor::heartbeat::HeartbeatState;
 
 pub(crate) struct GeneratorState {
     pub(crate) value: u32
 }
 
-#[cfg(not(test))]
 pub async fn run(context: SteadyContext, generated_tx: SteadyTx<u32>, state: SteadyState<GeneratorState>) -> Result<(),Box<dyn Error>> {
-    internal_behavior(context.into_monitor([], [&generated_tx]), generated_tx, state).await
-}
-
-#[cfg(test)]
-pub async fn run(context: SteadyContext, generated_tx: SteadyTx<u64>, state: SteadyState<HeartbeatState>) -> Result<(),Box<dyn Error>> {
-    context.into_monitor([], [&generated_tx])
-           .simulated_behavior([&Echo(generated_tx)]).await
+    let cmd = context.into_monitor([], [&generated_tx]);
+    if cfg!(not(test)) {
+        internal_behavior(cmd, generated_tx, state).await
+    } else {
+        cmd.simulated_behavior(vec!(&TestEcho(generated_tx))).await
+    }
 }
 
 async fn internal_behavior<C: SteadyCommander>(mut cmd: C, generated: SteadyTx<u32>, state: SteadyState<GeneratorState> ) -> Result<(),Box<dyn Error>> {
-
     let mut state = state.lock(|| GeneratorState {value: 0}).await;
     if let Some(state) = state.as_mut() {
         let mut generated = generated.lock().await;

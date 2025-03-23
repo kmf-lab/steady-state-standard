@@ -2,20 +2,19 @@ use std::error::Error;
 use std::time::Duration;
 use log::*;
 use steady_state::*;
-use steady_state::simulate_edge::Behavior::{Echo, Equals};
 use crate::actor::heartbeat::HeartbeatState;
 use crate::actor::worker::FizzBuzzMessage;
 
-#[cfg(not(test))]
+
 pub async fn run(context: SteadyContext, fizz_buzz_rx: SteadyRx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
-    internal_behavior(context.into_monitor([&fizz_buzz_rx], []), fizz_buzz_rx).await
+    let cmd = context.into_monitor([&fizz_buzz_rx], []);
+    if cfg!(not(test)) {
+        internal_behavior(cmd, fizz_buzz_rx).await;
+    } else {
+        cmd.simulated_behavior(vec!(&TestEquals(fizz_buzz_rx))).await
+    }
 }
 
-#[cfg(test)]
-pub async fn run(context: SteadyContext, fizz_buzz_rx: SteadyRx<FizzBuzzMessage>, state: SteadyState<HeartbeatState>) -> Result<(),Box<dyn Error>> {
-    context.into_monitor([&fizz_buzz_rx], [])
-           .simulated_behavior([&Equals(fizz_buzz_rx)]).await
-}
 
 async fn internal_behavior<C: SteadyCommander>(mut cmd: C, fizz_buzz: SteadyRx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
     let args = cmd.args::<crate::MainArg>().expect("unable to downcast");

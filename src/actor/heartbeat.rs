@@ -1,11 +1,8 @@
 use std::error::Error;
-use std::ops::DerefMut;
 use std::time::Duration;
 use log::info;
 use log::error;
 use steady_state::*;
-use steady_state::simulate_edge::{external_behavior, Simulate};
-use steady_state::simulate_edge::Behavior::Echo;
 
 /// by keeping the count in steady state this will not be lost or reset if this actor should panic
 pub(crate) struct HeartbeatState {
@@ -13,22 +10,21 @@ pub(crate) struct HeartbeatState {
 }
 
 /// this is the normal entry point for our actor in the graph using its normal implementation
-#[cfg(not(test))]
 pub async fn run(context: SteadyContext, heartbeat_tx: SteadyTx<u64>, state: SteadyState<HeartbeatState>) -> Result<(),Box<dyn Error>> {
-    internal_behavior(context.into_monitor([], [&heartbeat_tx]), heartbeat_tx, state).await
+    let cmd = context.into_monitor([], [&heartbeat_tx]);
+    if cfg!(not(test)) {
+        internal_behavior(cmd, heartbeat_tx, state).await
+    } else {
+        cmd.simulated_behavior(vec!(&TestEcho(heartbeat_tx))).await
+    }
 }
 
-/// this is the test entry point so graph testing can inject values rather than use the normal implementation
-#[cfg(test)]
-pub async fn run(context: SteadyContext, heartbeat_tx: SteadyTx<u64>, state: SteadyState<HeartbeatState>) -> Result<(),Box<dyn Error>> {
-    context.into_monitor([], [&heartbeat_tx])
-           .simulated_behavior([&Echo(heartbeat_tx)]).await
-}
 
 async fn internal_behavior<C: SteadyCommander>(mut cmd: C, heartbeat_tx: SteadyTx<u64>, state: SteadyState<HeartbeatState> ) -> Result<(),Box<dyn Error>> {
-
     let args = cmd.args::<crate::MainArg>().expect("unable to downcast");
     let rate = Duration::from_millis(args.rate_ms);
+    let beats = args.beats;
+    drop(args); //we need cmd for is_running so we must drop the args ref
     let mut state = state.lock(|| HeartbeatState{ count: 0}).await;
     if let Some(state) = state.as_mut() {
         let mut heartbeat_tx = heartbeat_tx.lock().await;
@@ -39,9 +35,8 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C, heartbeat_tx: SteadyT
 
             let _ = cmd.try_send(&mut heartbeat_tx, state.count);
 
-
             state.count += 1;
-            if args.beats == state.count {
+            if beats == state.count {
                 info!("request graph stop");
                 cmd.request_graph_stop();
             }
@@ -49,7 +44,6 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C, heartbeat_tx: SteadyT
     }
     Ok(())
 }
-
 
 /// Here we test the internal behavior of this actor
 #[cfg(test)]
@@ -88,6 +82,3 @@ pub(crate) mod tests {
         assert_eq!(vec[1], 1, "vec: {:?}", vec);
     }
 }
-
-//TODO: new apps,  llm infra builder - curl ebp clip,   ,remote compile,   memoizezed prompt clipboard, pii check.
-//      can I build on windows??

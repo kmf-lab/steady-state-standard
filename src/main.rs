@@ -36,7 +36,7 @@ fn main() {
                , &mut Threading::Spawn);
 
     actor_builder.with_name("worker")
-        .build( move |context| { actor::worker::run(context,heartbeat_rx.clone(), generator_rx.clone(), worker_tx.clone()) }
+        .build( move |context| { actor::worker::run(context, heartbeat_rx.clone(), generator_rx.clone(), worker_tx.clone()) }
                , &mut Threading::Spawn);
 
     actor_builder.with_name("logger")
