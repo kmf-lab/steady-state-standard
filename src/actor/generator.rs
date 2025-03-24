@@ -37,9 +37,7 @@ pub(crate) mod generator_tests {
 
     #[async_std::test]
     async fn test_generator() {
-        let mut graph = GraphBuilder::for_testing()
-            .with_telemetry_metric_features(false) //skip this???
-            .build(());
+        let mut graph = GraphBuilder::for_testing().build(());
 
         let (generate_tx, generate_rx) = graph.channel_builder()
             .with_capacity(500)

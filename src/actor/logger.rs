@@ -34,9 +34,7 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C, fizz_buzz: SteadyRx<F
 #[async_std::test]
 async fn test_logger() {
 
-    let mut graph = GraphBuilder::for_testing()
-        .with_telemetry_metric_features(false) //skip this???
-        .build(());
+    let mut graph = GraphBuilder::for_testing().build(());
 
     let (fizz_buzz_tx, fizz_buzz_rx) = graph.channel_builder()
         .with_capacity(500) // default this?
