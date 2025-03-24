@@ -1,7 +1,5 @@
 use steady_state::*;
-use clap::*;
 use arg::MainArg;
-
 mod arg;
 
 pub(crate) mod actor {

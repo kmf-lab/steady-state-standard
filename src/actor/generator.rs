@@ -1,8 +1,6 @@
 use std::error::Error;
-use std::time::Duration;
 use log::*;
 use steady_state::*;
-use crate::actor::heartbeat::HeartbeatState;
 
 pub(crate) struct GeneratorState {
     pub(crate) value: u32

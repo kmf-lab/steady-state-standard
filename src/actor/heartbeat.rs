@@ -1,7 +1,6 @@
 use std::error::Error;
 use std::time::Duration;
 use log::info;
-use log::error;
 use steady_state::*;
 
 /// by keeping the count in steady state this will not be lost or reset if this actor should panic
