@@ -1,6 +1,3 @@
-use std::error::Error;
-use std::time::Duration;
-use log::info;
 use steady_state::*;
 
 /// by keeping the count in steady state this will not be lost or reset if this actor should panic
@@ -22,22 +19,21 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C, heartbeat_tx: SteadyT
     let args = cmd.args::<crate::MainArg>().expect("unable to downcast");
     let rate = Duration::from_millis(args.rate_ms);
     let beats = args.beats;
-    drop(args); //we need cmd for is_running so we must drop the args ref
+ //   drop(args); //we need cmd for is_running so we must drop the args ref
     let mut state = state.lock(|| HeartbeatState{ count: 0}).await;
-    if let Some(state) = state.as_mut() {
-        let mut heartbeat_tx = heartbeat_tx.lock().await;
-        //loop is_running until shutdown signal then we call the closure which closes our outgoing Tx
-        while cmd.is_running(|| heartbeat_tx.mark_closed()) {
-            await_for_all!(cmd.wait_periodic(rate),
-                           cmd.wait_vacant(&mut heartbeat_tx, 1));
+    let mut heartbeat_tx = heartbeat_tx.lock().await;
+    //loop is_running until shutdown signal then we call the closure which closes our outgoing Tx
+    while cmd.is_running(|| heartbeat_tx.mark_closed()) {
+        //await here until both of these are true
+        await_for_all!(cmd.wait_periodic(rate),
+                       cmd.wait_vacant(&mut heartbeat_tx, 1));
 
-            let _ = cmd.try_send(&mut heartbeat_tx, state.count);
+        let _ = cmd.try_send(&mut heartbeat_tx, state.count);
 
-            state.count += 1;
-            if beats == state.count {
-                info!("request graph stop");
-                cmd.request_graph_stop();
-            }
+        state.count += 1;
+        if beats == state.count {
+            info!("request graph stop");
+            cmd.request_graph_stop();
         }
     }
     Ok(())
@@ -46,17 +42,15 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C, heartbeat_tx: SteadyT
 /// Here we test the internal behavior of this actor
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::time::Duration;
+    pub use std::thread::sleep;
     use steady_state::*;
     use super::*;
 
-    #[async_std::test]
-    async fn test_heartbeat() {
+    #[test]
+    fn test_heartbeat() {
         let mut graph = GraphBuilder::for_testing().build(());
-
-        let (heartbeat_tx, heartbeat_rx) = graph.channel_builder()
-            .with_capacity(500) // default this?
-            .build();
+        //default capacity is 64 unless specified
+        let (heartbeat_tx, heartbeat_rx) = graph.channel_builder().build();
 
         let state = new_state();
         graph.actor_builder()
@@ -66,15 +60,9 @@ pub(crate) mod tests {
             );
 
         graph.start(); //startup the graph
-
-        Delay::new(Duration::from_millis(1000 * 3)).await; //this is the default from args * 3
-
+        sleep(Duration::from_millis(1000 * 3)); //this is the default from args * 3
         graph.request_stop(); //our actor has no input so it immediately stops upon this request
         graph.block_until_stopped(Duration::from_secs(1));
-
-        let vec = heartbeat_rx.testing_take().await;
-
-        assert_eq!(vec[0], 0, "vec: {:?}", vec);
-        assert_eq!(vec[1], 1, "vec: {:?}", vec);
+        heartbeat_rx.assert_eq_take(vec!(0,1));
     }
 }
