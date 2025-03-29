@@ -49,6 +49,7 @@ pub(crate) mod generator_tests {
         graph.request_stop();
 
         graph.block_until_stopped(Duration::from_secs(1));
-        generate_rx.assert_eq_take(vec!(0,1));
+
+        assert_steady_rx_eq_take!(generate_rx.,vec!(0,1));
     }
 }

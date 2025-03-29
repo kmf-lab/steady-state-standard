@@ -63,6 +63,6 @@ pub(crate) mod tests {
         sleep(Duration::from_millis(1000 * 3)); //this is the default from args * 3
         graph.request_stop(); //our actor has no input so it immediately stops upon this request
         graph.block_until_stopped(Duration::from_secs(1));
-        heartbeat_rx.assert_eq_take(vec!(0,1));
+        assert_steady_rx_eq_take!(&heartbeat_rx, vec!(0,1));
     }
 }
