@@ -1,19 +1,19 @@
 use steady_state::*;
 
 pub(crate) struct GeneratorState {
-    pub(crate) value: u32
+    pub(crate) value: u64
 }
 
-pub async fn run(context: SteadyContext, generated_tx: SteadyTx<u32>, state: SteadyState<GeneratorState>) -> Result<(),Box<dyn Error>> {
+pub async fn run(context: SteadyContext, generated_tx: SteadyTx<u64>, state: SteadyState<GeneratorState>) -> Result<(),Box<dyn Error>> {
     let cmd = context.into_monitor([], [&generated_tx]);
-    if cfg!(not(test)) {
+    if cmd.use_internal_behavior {
         internal_behavior(cmd, generated_tx, state).await
     } else {
         cmd.simulated_behavior(vec!(&TestEcho(generated_tx))).await
     }
 }
 
-async fn internal_behavior<C: SteadyCommander>(mut cmd: C, generated: SteadyTx<u32>, state: SteadyState<GeneratorState> ) -> Result<(),Box<dyn Error>> {
+async fn internal_behavior<C: SteadyCommander>(mut cmd: C, generated: SteadyTx<u64>, state: SteadyState<GeneratorState> ) -> Result<(),Box<dyn Error>> {
 
     let mut state = state.lock(|| GeneratorState {value: 0}).await;
     let mut generated = generated.lock().await;
@@ -36,7 +36,6 @@ pub(crate) mod generator_tests {
     #[test]
     fn test_generator() {
         let mut graph = GraphBuilder::for_testing().build(());
-
         let (generate_tx, generate_rx) = graph.channel_builder().build();
 
         let state = new_state();
@@ -50,6 +49,6 @@ pub(crate) mod generator_tests {
 
         graph.block_until_stopped(Duration::from_secs(1));
 
-        assert_steady_rx_eq_take!(generate_rx.,vec!(0,1));
+        assert_steady_rx_eq_take!(generate_rx,vec!(0,1));
     }
 }

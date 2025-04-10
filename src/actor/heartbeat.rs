@@ -8,7 +8,7 @@ pub(crate) struct HeartbeatState {
 /// this is the normal entry point for our actor in the graph using its normal implementation
 pub async fn run(context: SteadyContext, heartbeat_tx: SteadyTx<u64>, state: SteadyState<HeartbeatState>) -> Result<(),Box<dyn Error>> {
     let cmd = context.into_monitor([], [&heartbeat_tx]);
-    if cfg!(not(test)) {
+    if cmd.use_internal_behavior {
         internal_behavior(cmd, heartbeat_tx, state).await
     } else {
         cmd.simulated_behavior(vec!(&TestEcho(heartbeat_tx))).await
@@ -19,7 +19,7 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C, heartbeat_tx: SteadyT
     let args = cmd.args::<crate::MainArg>().expect("unable to downcast");
     let rate = Duration::from_millis(args.rate_ms);
     let beats = args.beats;
- //   drop(args); //we need cmd for is_running so we must drop the args ref
+ //   drop(args); //could be done this way
     let mut state = state.lock(|| HeartbeatState{ count: 0}).await;
     let mut heartbeat_tx = heartbeat_tx.lock().await;
     //loop is_running until shutdown signal then we call the closure which closes our outgoing Tx

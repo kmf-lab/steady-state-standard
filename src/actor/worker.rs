@@ -11,30 +11,45 @@ pub(crate) enum FizzBuzzMessage {
     Buzz = 5,              // Discriminant is 5 - could have been any valid Buzz
     Value(u64),            // Store u64 directly, use the fact that FizzBuzz/Fizz/Buzz only occupy small values
 }
-
+impl FizzBuzzMessage {
+    pub fn new(value: u64) -> Self {
+        match (value % 3, value % 5) {
+            (0, 0) => FizzBuzzMessage::FizzBuzz,    // Multiple of 15
+            (0, _) => FizzBuzzMessage::Fizz,        // Multiple of 3, not 5
+            (_, 0) => FizzBuzzMessage::Buzz,        // Multiple of 5, not 3
+            _      => FizzBuzzMessage::Value(value), // Neither
+        }
+    }
+}
 
 pub async fn run(context: SteadyContext
                  , heartbeat: SteadyRx<u64> //the type can be any struct or primitive or enum...
-                 , generator: SteadyRx<u32>
+                 , generator: SteadyRx<u64>
                  , logger: SteadyTx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
     internal_behavior(context.into_monitor([&heartbeat, &generator], [&logger]), heartbeat, generator, logger).await
 }
 
 async fn internal_behavior<C: SteadyCommander>(mut cmd: C
                                                , heartbeat: SteadyRx<u64> //the type can be any struct or primitive or enum...
-                                               , generator: SteadyRx<u32>
+                                               , generator: SteadyRx<u64>
                                                , logger: SteadyTx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
 
-    let args = cmd.args::<crate::MainArg>().expect("unable to downcast");
-    let rate = Duration::from_millis(args.rate_ms);
+    let mut heartbeat = heartbeat.lock().await;
+    let mut generator = generator.lock().await;
+    let mut logger = logger.lock().await;
 
-    let mut count = args.beats;
     while cmd.is_running(|| true) {
-        await_for_all!(cmd.wait_periodic(rate));
-        info!("Heartbeat {} {:?}", count, rate );
-        count -= 1;
-        if  count == 0 {
-            cmd.request_graph_stop();
+        let _clean = await_for_all!(cmd.wait_avail(&mut heartbeat,1)
+                                  , cmd.wait_avail(&mut generator,1));
+
+        if let Some(h) = cmd.try_take(&mut heartbeat) {
+            //for each beat we empty the generated data
+            for item in cmd.take_into_iter(&mut generator) {
+                //note: SendSaturation tells the async call to just wait if the outgoing channel
+                //      is full. Another popular choice is Warn so it logs if it gets filled.
+                cmd.send_async(&mut logger, FizzBuzzMessage::new(item)
+                                          , SendSaturation::IgnoreAndWait).await;
+            }
         }
     }
     Ok(())
@@ -42,37 +57,38 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C
 
 #[cfg(test)]
 pub(crate) mod worker_tests {
+    use std::thread::sleep;
     use steady_state::*;
     use super::*;
 
     #[test]
     fn test_worker() {
         let mut graph = GraphBuilder::for_testing().build(());
-        // type defined by the usages
-        let (generate_tx, generate_rx) = graph.channel_builder().build::<u64>();
-        // type can be defined by turbo fish.
-        let (hearthbeat_tx, hearthbeat_rx) = graph.channel_builder().build::<u32>();
+        let (generate_tx, generate_rx) = graph.channel_builder().build();
+        let (heartbeat_tx, heartbeat_rx) = graph.channel_builder().build();
         let (logger_tx, logger_rx) = graph.channel_builder().build::<FizzBuzzMessage>();
 
+        graph.actor_builder().with_name("UnitTest")
+             .build(move |context| internal_behavior(context
+                                                             , heartbeat_rx.clone()
+                                                             , generate_rx.clone()
+                                                             , logger_tx.clone())
+                 , &mut Threading::Spawn
+             );
 
+        generate_tx.testing_send_all(vec![0,1,2,3,4,5], true);
+        heartbeat_tx.testing_send_all(vec![0], true);
+        graph.start();
 
-        //let state = new_state();
-        // graph.actor_builder()
-        //     .with_name("UnitTest")
-        //     .build_spawn(move |context|
-        //         internal_behavior(context, generate_tx.clone(), state.clone())
-        //     );
+        sleep(Duration::from_millis(100));
 
-        graph.start(); //startup the graph
-        //
-        // Delay::new(Duration::from_millis(100)).await;
-        //
-        // graph.request_stop(); //our actor has no input so it immediately stops upon this request
-        // graph.block_until_stopped(Duration::from_secs(1));
-        //
-        // let vec:Vec<u32> = generate_rx.testing_take().await;
-        //
-        // assert_eq!(vec[0], 0, "vec: {:?}", vec);
-        // assert_eq!(vec[1], 1, "vec: {:?}", vec);
+        graph.request_stop();
+        graph.block_until_stopped(Duration::from_secs(1));
+        assert_steady_rx_eq_take!(&logger_rx, [FizzBuzzMessage::FizzBuzz
+                                              ,FizzBuzzMessage::Value(1)
+                                              ,FizzBuzzMessage::Value(2)
+                                              ,FizzBuzzMessage::Fizz
+                                              ,FizzBuzzMessage::Value(4)
+                                              ,FizzBuzzMessage::Buzz]);
     }
 }
