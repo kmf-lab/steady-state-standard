@@ -1,6 +1,5 @@
 use std::sync::{Arc, Mutex};
 use std::thread::sleep;
-use steady_state::*;
 use steady_logger::*;
 use crate::actor::worker::FizzBuzzMessage;
 
@@ -24,20 +23,10 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C, rx: SteadyRx<FizzBuzz
     Ok(())
 }
 
-//  todo: add custom Access-Control-Allow-Origin: *
-//        must repeat back if that orgin is found somewhere in the graph.
-//  fix in 2 weeks???,
-//                  add CORS header for all //with comment due to dynamic nature its hard to add more
-//                  add dot file from aeron plus example areron for students.
-//                  fix line width. expo at some rate!
-//                  examples clean code gen!!
-//  stocks.
-
-
-
 #[test]
 fn test_logger() {
-    initialize_for_test(LogLevel::Trace).expect("Failed to initialize test logger");
+    initialize(LogLevel::Trace).expect("Failed to initialize test logger");
+    let _guard = start_capture();
 
     let mut graph = GraphBuilder::for_testing().build(());
     let (fizz_buzz_tx, fizz_buzz_rx) = graph.channel_builder().build();
