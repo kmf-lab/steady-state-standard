@@ -15,7 +15,9 @@ pub async fn run(context: SteadyContext, heartbeat_tx: SteadyTx<u64>, state: Ste
     }
 }
 
-async fn internal_behavior<C: SteadyCommander>(mut cmd: C, heartbeat_tx: SteadyTx<u64>, state: SteadyState<HeartbeatState> ) -> Result<(),Box<dyn Error>> {
+async fn internal_behavior<C: SteadyCommander>(mut cmd: C
+                                               , heartbeat_tx: SteadyTx<u64>
+                                               , state: SteadyState<HeartbeatState> ) -> Result<(),Box<dyn Error>> {
     let args = cmd.args::<crate::MainArg>().expect("unable to downcast");
     let rate = Duration::from_millis(args.rate_ms);
     let beats = args.beats;
@@ -44,11 +46,15 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C, heartbeat_tx: SteadyT
 pub(crate) mod tests {
     pub use std::thread::sleep;
     use steady_state::*;
+    use crate::arg::MainArg;
     use super::*;
 
     #[test]
     fn test_heartbeat() {
-        let mut graph = GraphBuilder::for_testing().build(());
+        let mut graph = GraphBuilder::for_testing().build(MainArg {
+            rate_ms: 0,
+            beats: 0,
+        });
         //default capacity is 64 unless specified
         let (heartbeat_tx, heartbeat_rx) = graph.channel_builder().build();
 
