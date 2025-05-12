@@ -48,7 +48,7 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C
                 //note: SendSaturation tells the async call to just wait if the outgoing channel
                 //      is full. Another popular choice is Warn so it logs if it gets filled.
                 cmd.send_async(&mut logger, FizzBuzzMessage::new(item)
-                                          , SendSaturation::IgnoreAndWait).await;
+                                          , SendSaturation::AwaitForRoom).await;
             }
         }
     }

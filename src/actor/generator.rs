@@ -20,7 +20,7 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C, generated: SteadyTx<u
 
     while cmd.is_running(|| generated.mark_closed()) {
          //this will await until we have room for this one.
-         let _ = cmd.send_async(&mut generated, state.value, SendSaturation::IgnoreAndWait).await;
+         let _ = cmd.send_async(&mut generated, state.value, SendSaturation::AwaitForRoom).await;
          state.value += 1;
     }
     Ok(())
