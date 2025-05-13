@@ -15,32 +15,7 @@ fn main() {
     let mut graph = GraphBuilder::default()
            .build(cli_args); //or pass () if no args
 
-    let channel_builder = graph.channel_builder();
-
-    let (heartbeat_tx,heartbeat_rx) = channel_builder.build();
-    let (generator_tx,generator_rx) = channel_builder.build();
-    let (worker_tx,worker_rx) = channel_builder.build();
-
-    let actor_builder = graph.actor_builder().with_mcpu_avg();
-
-    let state = new_state();
-    actor_builder.with_name("heartbeat")
-         .build( move |context| { actor::heartbeat::run(context, heartbeat_tx.clone(), state.clone()) }
-               , &mut Threading::Spawn);
-
-    let state = new_state();
-    actor_builder.with_name("generator")
-        .build( move |context| { actor::generator::run(context, generator_tx.clone(), state.clone()) }
-               , &mut Threading::Spawn);
-
-    actor_builder.with_name("worker")
-        .build( move |context| { actor::worker::run(context, heartbeat_rx.clone(), generator_rx.clone(), worker_tx.clone()) }
-               , &mut Threading::Spawn);
-
-    actor_builder.with_name("logger")
-        .build( move |context| { actor::logger::run(context, worker_rx.clone()) }
-               , &mut Threading::Spawn);
-
+    build_graph(&mut graph);
 
     //startup entire graph
     graph.start();
@@ -48,10 +23,62 @@ fn main() {
     graph.block_until_stopped(std::time::Duration::from_secs(1));
 }
 
+fn build_graph(graph: &mut Graph) {
+    let channel_builder = graph.channel_builder();
+
+    let (heartbeat_tx, heartbeat_rx) = channel_builder.build();
+    let (generator_tx, generator_rx) = channel_builder.build();
+    let (worker_tx, worker_rx) = channel_builder.build();
+
+    let actor_builder = graph.actor_builder().with_mcpu_avg();
+
+    let state = new_state();
+    actor_builder.with_name("heartbeat")
+        .build(move |context| { actor::heartbeat::run(context, heartbeat_tx.clone(), state.clone()) }
+               , &mut Threading::Spawn);
+
+    let state = new_state();
+    actor_builder.with_name("generator")
+        .build(move |context| { actor::generator::run(context, generator_tx.clone(), state.clone()) }
+               , &mut Threading::Spawn);
+
+    actor_builder.with_name("worker")
+        .build(move |context| { actor::worker::run(context, heartbeat_rx.clone(), generator_rx.clone(), worker_tx.clone()) }
+               , &mut Threading::Spawn);
+
+    actor_builder.with_name("logger")
+        .build(move |context| { actor::logger::run(context, worker_rx.clone()) }
+               , &mut Threading::Spawn);
+}
 
 
+#[cfg(test)]
+pub(crate) mod main_tests {
+    use std::thread::sleep;
+    use steady_state::*;
+    use super::*;
 
-//tests
+    #[test]
+    fn graph_test() {
+
+        let gb = GraphBuilder::for_testing();
+
+        let mut graph = gb.build(MainArg {
+            rate_ms: 100,
+            beats: 10,
+        });
+
+        build_graph(&mut graph);
+
+        //TODO: this must be 1 lock just llike state..
+         let mut guard = graph.sidechannel_director().await;
+        // let some_director = guard.deref_mut();
+
+        //let mut director = graph.sidechannel_director().await;  //perhaps panic here! and recommend for_testinga bove..
+
+
+    }
+}
 
 
 //standard needs single message passing

@@ -43,5 +43,5 @@ fn test_logger() {
     graph.request_stop();
     graph.block_until_stopped(Duration::from_secs(1));
 
-    //assert_in_logs!(vec!["Msg Fizz"]);
+    assert_in_logs!(vec!["Msg Fizz"]);
  }
