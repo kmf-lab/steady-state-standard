@@ -11,6 +11,7 @@ pub async fn run(context: SteadyContext, heartbeat_tx: SteadyTx<u64>, state: Ste
     if cmd.use_internal_behavior {
         internal_behavior(cmd, heartbeat_tx, state).await
     } else {
+        error!("simulated");
         cmd.simulated_behavior(vec!(&TestEcho(heartbeat_tx))).await
     }
 }

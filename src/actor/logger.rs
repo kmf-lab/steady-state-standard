@@ -8,6 +8,7 @@ pub async fn run(context: SteadyContext, fizz_buzz_rx: SteadyRx<FizzBuzzMessage>
     if cmd.use_internal_behavior {
         internal_behavior(cmd, fizz_buzz_rx).await
     } else {
+        error!("simulated");
         cmd.simulated_behavior(vec!(&TestEquals(fizz_buzz_rx))).await
     }
 }

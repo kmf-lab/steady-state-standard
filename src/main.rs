@@ -56,10 +56,11 @@ fn build_graph(graph: &mut Graph) {
 pub(crate) mod main_tests {
     use std::thread::sleep;
     use steady_state::*;
+    use crate::actor::worker::FizzBuzzMessage::FizzBuzz;
     use super::*;
 
     #[test]
-    fn graph_test() {
+    fn graph_test() -> Result<(), Box<dyn std::error::Error>> {
 
         let gb = GraphBuilder::for_testing();
 
@@ -70,13 +71,25 @@ pub(crate) mod main_tests {
 
         build_graph(&mut graph);
 
+        
+        graph.start();
+        
         //TODO: this must be 1 lock just llike state..
-         let mut guard = graph.sidechannel_director().await;
-        // let some_director = guard.deref_mut();
+        let messenger = graph.sidechannel_messenger();
+      
+      // // //TODO: why use option for this instead of Result?? is_ok seems better!!
+       messenger.call_actor(Box::new(15), ActorName::new("generator",None))?;
+       messenger.call_actor(Box::new(100), ActorName::new("heartbeat",None))?;
+      // // 
+      // // //  sleep(std::time::Duration::from_millis(100));
+      // //   //TODO: we need a better timeout solution
+      messenger.call_actor(Box::new(FizzBuzz), ActorName::new("logger",None))?;
 
-        //let mut director = graph.sidechannel_director().await;  //perhaps panic here! and recommend for_testinga bove..
-
-
+        
+         drop(messenger);
+         graph.request_stop();
+         graph.block_until_stopped(std::time::Duration::from_secs(1));
+        Ok(())
     }
 }
 
