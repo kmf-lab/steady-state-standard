@@ -1,4 +1,3 @@
-use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use steady_state::*;
 use crate::actor::worker::FizzBuzzMessage;
@@ -8,7 +7,6 @@ pub async fn run(context: SteadyContext, fizz_buzz_rx: SteadyRx<FizzBuzzMessage>
     if cmd.use_internal_behavior {
         internal_behavior(cmd, fizz_buzz_rx).await
     } else {
-        error!("simulated");
         cmd.simulated_behavior(vec!(&TestEquals(fizz_buzz_rx))).await
     }
 }
@@ -25,7 +23,7 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C, rx: SteadyRx<FizzBuzz
 }
 
 #[test]
-fn test_logger() {
+fn test_logger() -> Result<(), Box<dyn std::error::Error>> {
     use steady_logger::*;
 
     initialize_with_level(LogLevel::Trace).expect("Failed to initialize test logger");
@@ -42,7 +40,8 @@ fn test_logger() {
     fizz_buzz_tx.testing_send_all(vec![FizzBuzzMessage::Fizz],true);
     sleep(Duration::from_millis(300));
     graph.request_stop();
-    graph.block_until_stopped(Duration::from_secs(1));
+    graph.block_until_stopped(Duration::from_secs(1))?;
 
     assert_in_logs!(vec!["Msg Fizz"]);
+    Ok(())
  }

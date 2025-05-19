@@ -11,7 +11,6 @@ pub async fn run(context: SteadyContext, heartbeat_tx: SteadyTx<u64>, state: Ste
     if cmd.use_internal_behavior {
         internal_behavior(cmd, heartbeat_tx, state).await
     } else {
-        error!("simulated");
         cmd.simulated_behavior(vec!(&TestEcho(heartbeat_tx))).await
     }
 }
@@ -36,7 +35,7 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C
         state.count += 1;
         if beats == state.count {
             info!("request graph stop");
-            cmd.request_graph_stop();
+            cmd.request_graph_stop().await;
         }
     }
     Ok(())
@@ -51,7 +50,7 @@ pub(crate) mod tests {
     use super::*;
 
     #[test]
-    fn test_heartbeat() {
+    fn test_heartbeat() -> Result<(), Box<dyn std::error::Error>> {
         let mut graph = GraphBuilder::for_testing().build(MainArg {
             rate_ms: 0,
             beats: 0,
@@ -69,7 +68,8 @@ pub(crate) mod tests {
         graph.start(); //startup the graph
         sleep(Duration::from_millis(1000 * 3)); //this is the default from args * 3
         graph.request_stop(); //our actor has no input so it immediately stops upon this request
-        graph.block_until_stopped(Duration::from_secs(1));
+        graph.block_until_stopped(Duration::from_secs(1))?;
         assert_steady_rx_eq_take!(&heartbeat_rx, vec!(0,1));
+        Ok(())
     }
 }

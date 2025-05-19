@@ -42,7 +42,7 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C
         let _clean = await_for_all!(cmd.wait_avail(&mut heartbeat,1)
                                   , cmd.wait_avail(&mut generator,1));
 
-        if let Some(h) = cmd.try_take(&mut heartbeat) {
+        if let Some(_h) = cmd.try_take(&mut heartbeat) {
             //for each beat we empty the generated data
             for item in cmd.take_into_iter(&mut generator) {
                 //note: SendSaturation tells the async call to just wait if the outgoing channel
@@ -62,7 +62,7 @@ pub(crate) mod worker_tests {
     use super::*;
 
     #[test]
-    fn test_worker() {
+    fn test_worker() -> Result<(), Box<dyn std::error::Error>> {
         let mut graph = GraphBuilder::for_testing().build(());
         let (generate_tx, generate_rx) = graph.channel_builder().build();
         let (heartbeat_tx, heartbeat_rx) = graph.channel_builder().build();
@@ -83,12 +83,13 @@ pub(crate) mod worker_tests {
         sleep(Duration::from_millis(100));
 
         graph.request_stop();
-        graph.block_until_stopped(Duration::from_secs(1));
+        graph.block_until_stopped(Duration::from_secs(1))?;
         assert_steady_rx_eq_take!(&logger_rx, [FizzBuzzMessage::FizzBuzz
                                               ,FizzBuzzMessage::Value(1)
                                               ,FizzBuzzMessage::Value(2)
                                               ,FizzBuzzMessage::Fizz
                                               ,FizzBuzzMessage::Value(4)
                                               ,FizzBuzzMessage::Buzz]);
+        Ok(())
     }
 }
