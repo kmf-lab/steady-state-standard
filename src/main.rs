@@ -69,25 +69,20 @@ pub(crate) mod main_tests {
             beats: 10,
         });
 
-        build_graph(&mut graph);
-        
+        build_graph(&mut graph);        
         graph.start();
 
         let messenger = graph.sidechannel_messenger();
+        messenger.call_actor_with_name(Box::new(15u64), "generator")?; //TODO: move name first
+        messenger.call_actor_with_name(Box::new(100u64), "heartbeat")?;
 
-       messenger.call_actor_with_name(Box::new(15u64), "generator")?;
-       messenger.call_actor_with_name(Box::new(100u64), "heartbeat")?;
-      // // 
-      // // //  sleep(std::time::Duration::from_millis(100));
-      // //   //TODO: we need a better timeout solution
-      messenger.call_actor_with_name(Box::new(FizzBuzzMessage::FizzBuzz), "logger")?;
-
+         // //   //TODO: we need a better timeout solution
+         messenger.call_actor_with_name(Box::new(FizzBuzzMessage::FizzBuzz), "logger")?;
         
-      drop(messenger); //TODO: combine
-      graph.request_stop();
+         drop(messenger); //TODO: combine
+         graph.request_stop();
 
-
-      graph.block_until_stopped(std::time::Duration::from_secs(1))
+         graph.block_until_stopped(std::time::Duration::from_secs(1))
     }
 }
 
