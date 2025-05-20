@@ -75,12 +75,12 @@ pub(crate) mod main_tests {
 
         let messenger = graph.sidechannel_messenger();
 
-       messenger.call_actor(Box::new(15u64), ActorName::new("generator", None))?;
-       messenger.call_actor(Box::new(100u64), ActorName::new("heartbeat", None))?;
+       messenger.call_actor_with_name(Box::new(15u64), "generator")?;
+       messenger.call_actor_with_name(Box::new(100u64), "heartbeat")?;
       // // 
       // // //  sleep(std::time::Duration::from_millis(100));
       // //   //TODO: we need a better timeout solution
-      messenger.call_actor(Box::new(FizzBuzzMessage::FizzBuzz), ActorName::new("logger",None))?;
+      messenger.call_actor_with_name(Box::new(FizzBuzzMessage::FizzBuzz), "logger")?;
 
         
       drop(messenger); //TODO: combine
