@@ -62,7 +62,7 @@ pub(crate) mod worker_tests {
     use super::*;
 
     #[test]
-    fn test_worker() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_worker() -> Result<(), Box<dyn Error>> {
         let mut graph = GraphBuilder::for_testing().build(());
         let (generate_tx, generate_rx) = graph.channel_builder().build();
         let (heartbeat_tx, heartbeat_rx) = graph.channel_builder().build();

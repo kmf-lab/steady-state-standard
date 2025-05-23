@@ -7,13 +7,13 @@ pub async fn run(context: SteadyContext, fizz_buzz_rx: SteadyRx<FizzBuzzMessage>
     if cmd.use_internal_behavior {
         internal_behavior(cmd, fizz_buzz_rx).await
     } else {
-        cmd.simulated_behavior(vec!(&TestEquals(fizz_buzz_rx))).await
+        cmd.simulated_behavior(vec!(&fizz_buzz_rx)).await
     }
 }
 
 async fn internal_behavior<C: SteadyCommander>(mut cmd: C, rx: SteadyRx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
     let mut rx = rx.lock().await;
-    while cmd.is_running(|| rx.is_closed_and_empty()) {
+    while cmd.is_running(|| i!(rx.is_closed_and_empty())) {
         await_for_all!(cmd.wait_avail(&mut rx, 1));
         if let Some(msg) = cmd.try_take(&mut rx) {
             info!("Msg {:?}", msg );
@@ -27,7 +27,6 @@ fn test_logger() -> Result<(), Box<dyn std::error::Error>> {
     use steady_logger::*;
 
     initialize_with_level(LogLevel::Trace).expect("Failed to initialize test logger");
-    //TODO: can we wrap this guard as well.
     let _guard = start_capture();
 
     let mut graph = GraphBuilder::for_testing().build(());
@@ -43,6 +42,6 @@ fn test_logger() -> Result<(), Box<dyn std::error::Error>> {
     graph.request_stop();
     graph.block_until_stopped(Duration::from_secs(1))?;
 
-    //assert_in_logs!(vec!["Msg Fizz"]);
+    //assert_in_logs!(vec!["Msg Fizz"]);  //TODO: last bug to resolve?
     Ok(())
  }

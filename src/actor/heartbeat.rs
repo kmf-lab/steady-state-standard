@@ -11,7 +11,7 @@ pub async fn run(context: SteadyContext, heartbeat_tx: SteadyTx<u64>, state: Ste
     if cmd.use_internal_behavior {
         internal_behavior(cmd, heartbeat_tx, state).await
     } else {
-        cmd.simulated_behavior(vec!(&TestEcho(heartbeat_tx))).await
+        cmd.simulated_behavior(vec!(&heartbeat_tx)).await
     }
 }
 
@@ -25,7 +25,7 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C
     let mut state = state.lock(|| HeartbeatState{ count: 0}).await;
     let mut heartbeat_tx = heartbeat_tx.lock().await;
     //loop is_running until shutdown signal then we call the closure which closes our outgoing Tx
-    while cmd.is_running(|| heartbeat_tx.mark_closed()) {
+    while cmd.is_running(|| i!(heartbeat_tx.mark_closed())) {
         //await here until both of these are true
         await_for_all!(cmd.wait_periodic(rate),
                        cmd.wait_vacant(&mut heartbeat_tx, 1));
@@ -50,7 +50,7 @@ pub(crate) mod tests {
     use super::*;
 
     #[test]
-    fn test_heartbeat() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_heartbeat() -> Result<(), Box<dyn Error>> {
         let mut graph = GraphBuilder::for_testing().build(MainArg {
             rate_ms: 0,
             beats: 0,

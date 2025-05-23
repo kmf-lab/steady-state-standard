@@ -9,7 +9,7 @@ pub async fn run(context: SteadyContext, generated_tx: SteadyTx<u64>, state: Ste
     if cmd.use_internal_behavior {
         internal_behavior(cmd, generated_tx, state).await
     } else {
-        cmd.simulated_behavior(vec!(&TestEcho(generated_tx))).await
+        cmd.simulated_behavior(vec!(&generated_tx)).await
     }
 }
 
@@ -18,7 +18,7 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C, generated: SteadyTx<u
     let mut state = state.lock(|| GeneratorState {value: 0}).await;
     let mut generated = generated.lock().await;
 
-    while cmd.is_running(|| generated.mark_closed()) {
+    while cmd.is_running(|| i!(generated.mark_closed())) {
          //this will await until we have room for this one.
          let _ = cmd.send_async(&mut generated, state.value, SendSaturation::AwaitForRoom).await;
          state.value += 1;
@@ -34,7 +34,7 @@ pub(crate) mod generator_tests {
     use super::*;
 
     #[test]
-    fn test_generator() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_generator() -> Result<(), Box<dyn Error>> {
         let mut graph = GraphBuilder::for_testing().build(());
         let (generate_tx, generate_rx) = graph.channel_builder().build();
 

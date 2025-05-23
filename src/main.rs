@@ -9,7 +9,7 @@ pub(crate) mod actor {
    pub(crate) mod logger;
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     
     let cli_args = MainArg::parse();
     let _ = init_logging(LogLevel::Info);
@@ -21,8 +21,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //startup entire graph
     graph.start();
     // your graph is running here until actor calls graph stop
-    graph.block_until_stopped(std::time::Duration::from_secs(1))
+    graph.block_until_stopped(Duration::from_secs(1))
 }
+
+const NAME_HEARTBEAT: &str = "heartbeat";
+const NAME_GENERATOR: &str = "generator";
+const NAME_WORKER: &str = "worker";
+const NAME_LOGGER: &str = "logger";
 
 fn build_graph(graph: &mut Graph) {
     let channel_builder = graph.channel_builder();
@@ -34,37 +39,35 @@ fn build_graph(graph: &mut Graph) {
     let actor_builder = graph.actor_builder().with_mcpu_avg();
 
     let state = new_state();
-    actor_builder.with_name("heartbeat")
+    actor_builder.with_name(NAME_HEARTBEAT)
         .build(move |context| { actor::heartbeat::run(context, heartbeat_tx.clone(), state.clone()) }
                , &mut Threading::Spawn);
 
     let state = new_state();
-    actor_builder.with_name("generator")
+    actor_builder.with_name(NAME_GENERATOR)
         .build(move |context| { actor::generator::run(context, generator_tx.clone(), state.clone()) }
                , &mut Threading::Spawn);
 
-    actor_builder.with_name("worker")
+    actor_builder.with_name(NAME_WORKER)
         .build(move |context| { actor::worker::run(context, heartbeat_rx.clone(), generator_rx.clone(), worker_tx.clone()) }
                , &mut Threading::Spawn);
 
-    actor_builder.with_name("logger")
+    actor_builder.with_name(NAME_LOGGER)
         .build(move |context| { actor::logger::run(context, worker_rx.clone()) }
                , &mut Threading::Spawn);
 }
 
-
 #[cfg(test)]
 pub(crate) mod main_tests {
     use steady_state::*;
+    use steady_state::graph_testing::{StageDirection, StageWaitFor};
     use crate::actor::worker::FizzBuzzMessage;
     use super::*;
 
     #[test]
-    fn graph_test() -> Result<(), Box<dyn std::error::Error>> {
+    fn graph_test() -> Result<(), Box<dyn Error>> {
 
-        let gb = GraphBuilder::for_testing();
-
-        let mut graph = gb.build(MainArg {
+        let mut graph = GraphBuilder::for_testing().build(MainArg {
             rate_ms: 100,
             beats: 10,
         });
@@ -72,41 +75,17 @@ pub(crate) mod main_tests {
         build_graph(&mut graph);        
         graph.start();
 
-        let messenger = graph.sidechannel_messenger();
-        messenger.call_actor_with_name(Box::new(15u64), "generator")?; //TODO: move name first
-        messenger.call_actor_with_name(Box::new(100u64), "heartbeat")?;
+        let stage_manager = graph.stage_manager();
+        stage_manager.actor_perform(NAME_GENERATOR, StageDirection::EchoAt(0,15u64))?;
+        stage_manager.actor_perform(NAME_HEARTBEAT, StageDirection::Echo(100u64))?;
+        stage_manager.actor_perform(NAME_LOGGER,    StageWaitFor::Message(FizzBuzzMessage::FizzBuzz
+                                                                        , Duration::from_secs(2)))?;
+        stage_manager.final_bow();
 
-         // //   //TODO: we need a better timeout solution
-         messenger.call_actor_with_name(Box::new(FizzBuzzMessage::FizzBuzz), "logger")?;
-        
-         drop(messenger); //TODO: combine
-         graph.request_stop();
+        graph.request_stop();
 
-         graph.block_until_stopped(std::time::Duration::from_secs(1))
+        graph.block_until_stopped(Duration::from_secs(1))
+
     }
 }
-
-
-//standard needs single message passing
-//               graph test
-//               actor test
-//  demo something not send?
-//  demo wait_for_all with multiple channels
-//  demo state
-//  demo clean shutdown
-//  will be common base for the following 3
-//  hb & gen ->try worker ->async logger/shutdown
-
-
-// robust will have
-//     panic, peek, dlq, externalAwait?
-
-// performant will have
-//     full batch usage, skip iterator ?
-//     zero copy???visitor?
-
-// distributed will have
-//     stream demo between boxes
-//
-
 
