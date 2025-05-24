@@ -43,7 +43,7 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C
 
 /// Here we test the internal behavior of this actor
 #[cfg(test)]
-pub(crate) mod tests {
+pub(crate) mod heartbeat_tests {
     pub use std::thread::sleep;
     use steady_state::*;
     use crate::arg::MainArg;
@@ -66,7 +66,7 @@ pub(crate) mod tests {
             );
 
         graph.start(); //startup the graph
-        sleep(Duration::from_millis(1000 * 3)); //this is the default from args * 3
+        sleep(Duration::from_millis(1000 * 3)); //this is the default from args * 3        
         graph.request_stop(); //our actor has no input so it immediately stops upon this request
         graph.block_until_stopped(Duration::from_secs(1))?;
         assert_steady_rx_eq_take!(&heartbeat_rx, vec!(0,1));

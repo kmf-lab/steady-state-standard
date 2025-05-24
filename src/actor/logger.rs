@@ -12,7 +12,7 @@ pub async fn run(context: SteadyContext, fizz_buzz_rx: SteadyRx<FizzBuzzMessage>
 }
 
 async fn internal_behavior<C: SteadyCommander>(mut cmd: C, rx: SteadyRx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
-    let mut rx = rx.lock().await;
+    let mut rx = rx.lock().await;   
     while cmd.is_running(|| i!(rx.is_closed_and_empty())) {
         await_for_all!(cmd.wait_avail(&mut rx, 1));
         if let Some(msg) = cmd.try_take(&mut rx) {
@@ -25,23 +25,23 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C, rx: SteadyRx<FizzBuzz
 #[test]
 fn test_logger() -> Result<(), Box<dyn std::error::Error>> {
     use steady_logger::*;
-
-    initialize_with_level(LogLevel::Trace).expect("Failed to initialize test logger");
-    let _guard = start_capture();
+    let _guard = start_log_capture();
 
     let mut graph = GraphBuilder::for_testing().build(());
     let (fizz_buzz_tx, fizz_buzz_rx) = graph.channel_builder().build();
 
     graph.actor_builder().with_name("UnitTest")
-        .build(move |context| internal_behavior(context, fizz_buzz_rx.clone())
+        .build(move |context| {
+            internal_behavior(context, fizz_buzz_rx.clone())
+        }
               , &mut Threading::Spawn);
 
     graph.start();
     fizz_buzz_tx.testing_send_all(vec![FizzBuzzMessage::Fizz],true);
     sleep(Duration::from_millis(300));
     graph.request_stop();
-    graph.block_until_stopped(Duration::from_secs(1))?;
+    graph.block_until_stopped(Duration::from_secs(10000))?;
+    assert_in_logs!(["Msg Fizz"]);
 
-    //assert_in_logs!(vec!["Msg Fizz"]);  //TODO: last bug to resolve?
     Ok(())
  }
