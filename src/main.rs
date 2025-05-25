@@ -67,10 +67,7 @@ pub(crate) mod main_tests {
     #[test]
     fn graph_test() -> Result<(), Box<dyn Error>> {
 
-        let mut graph = GraphBuilder::for_testing().build(MainArg {
-            rate_ms: 100,
-            beats: 10,
-        });
+        let mut graph = GraphBuilder::for_testing().build(MainArg::default());
 
         build_graph(&mut graph);        
         graph.start();
