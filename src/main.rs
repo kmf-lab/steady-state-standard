@@ -73,7 +73,7 @@ pub(crate) mod main_tests {
         graph.start();
 
         let stage_manager = graph.stage_manager();
-        stage_manager.actor_perform(NAME_GENERATOR, StageDirection::EchoAt(0,15u64))?;
+        stage_manager.actor_perform(NAME_GENERATOR, StageDirection::Echo(15u64))?;
         stage_manager.actor_perform(NAME_HEARTBEAT, StageDirection::Echo(100u64))?;
         stage_manager.actor_perform(NAME_LOGGER,    StageWaitFor::Message(FizzBuzzMessage::FizzBuzz
                                                                         , Duration::from_secs(2)))?;
