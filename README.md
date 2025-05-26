@@ -1,101 +1,254 @@
-# Steady State Standard
+# Steady State Standard Example
 
-A production-ready actor system demonstrating core concurrent programming patterns with the `steady_state` framework.
+A production-ready actor system demonstrating advanced concurrent programming patterns with the [`steady_state`](https://crates.io/crates/steady_state) framework. This example builds on the minimal foundation to show real-world patterns including state persistence, multi-actor coordination, batch processing, and comprehensive testing.
 
-## System Architecture
+## 🎯 Why This Example is "Standard"
 
-**Data Flow Pipeline**:
-Generator → Worker ← Heartbeat → Logger
+This lesson focuses on production-ready actor patterns:
+- Multi-actor coordination and data flow pipelines
+- Persistent state management across restarts
+- Batch processing with timing control
+- Comprehensive testing strategies
+- Runtime configuration and monitoring
+
+**Building on**: The minimal example's core concepts of actors, coordination, and shutdown.
+
+## 🎯 Overview
+
+This project demonstrates advanced features of actor-based architecture:
+
+- **Multi-Actor Pipelines**: Coordinated data flow between specialized actors
+- **State Persistence**: Actor state survives crashes and restarts
+- **Batch Processing**: Timing-controlled bulk operations
+- **Dual-Mode Testing**: Same code runs in production and test modes
+- **Runtime Configuration**: Command-line arguments control behavior
+- **Built-in Monitoring**: Performance metrics and alerting
+
+## 🧠 Key Concepts
+
+### Threading Model Evolution
+
+| Minimal Example          | Standard Example           |
+|--------------------------|----------------------------|
+| Single actor demonstration | Multi-actor coordination |
+| Basic timing patterns     | Complex flow control       |
+| Simple shutdown           | Cooperative pipeline shutdown |
+| Foundation concepts       | Production patterns        |
+
+### Actor Specialization Patterns
 
 - **Generator**: Continuous data production with persistent state
 - **Heartbeat**: Timing control and lifecycle management
-- **Worker**: Batch processing with backpressure handling
-- **Logger**: Message consumption and output
+- **Worker**: Batch processing coordinator with multiple inputs
+- **Logger**: Message consumption and side effect handling
 
-## Threading Model
+### Advanced Coordination
 
-### Actor-Per-Thread Isolation
-Each actor runs on its own dedicated thread using `Threading::Spawn`, providing complete memory isolation. Unlike traditional threading models that share memory and require locks, actors communicate exclusively through channels.
+- **Multi-Input Actors**: Workers coordinate between timing signals and data streams
+- **Backpressure Management**: Automatic flow control prevents system overload
+- **Graceful Pipeline Shutdown**: Messages drain completely before termination
+- **State Recovery**: Persistent counters survive actor restarts
 
-**Traditional Threading Problems Eliminated**:
-- **Race Conditions**: Impossible since actors don't share memory
-- **Deadlocks**: No shared locks to create circular dependencies
-- **Data Races**: Each thread owns its state exclusively
-- **Manual Synchronization**: Framework handles coordination automatically
+## 📋 System Architecture
 
-### Thread Coordination Patterns
-
-**Cooperative Shutdown**: When any actor calls `request_graph_stop()`, the shutdown signal propagates to all threads. Each actor completes its current work and closes its channels, allowing dependent actors to drain remaining messages before terminating.
-
-**Backpressure Across Threads**: The framework automatically manages flow control between threads. When a receiving actor's channel fills up, sending actors block until space becomes available, preventing system overload without explicit coordination.
-
-**Synchronized Operations**: The `await_for_all!` macro coordinates multiple async conditions across thread boundaries, such as waiting for both periodic timers and channel availability simultaneously.
-
-### Channel-Based Communication
-
-Channels replace traditional shared memory patterns:
-- **Type Safety**: Compile-time guarantees about message types
-- **Bounded Buffers**: Automatic backpressure when channels fill
-- **Clean Shutdown**: Channels can be marked closed to signal completion
-- **Zero-Copy**: Messages move between threads without duplication when possible
-
-## Core Features
-
-### Actor State Management
-State persists across actor restarts using `SteadyState<T>`, enabling fault tolerance without complex recovery logic.
-
-### Dual-Mode Operation
-Same actor code runs in production and test environments through conditional behavior switching.
-
-### Flow Control Primitives
-- Coordinate multiple async conditions with `await_for_all!`
-- Manage backpressure with `SendSaturation::AwaitForRoom`
-- Handle periodic operations with `wait_periodic()`
-- Monitor channel states with `wait_vacant()` and `wait_avail()`
-
-### Message Processing Patterns
-
-**Batch Processing**: Workers process data in batches triggered by heartbeat signals, enabling efficient bulk operations while maintaining responsive timing control.
-
-**Continuous Processing**: Generators produce data continuously until shutdown, with automatic flow control preventing buffer overflows.
-
-**Event-Driven Processing**: Loggers respond to incoming messages immediately, demonstrating reactive patterns within the actor framework.
-
-## Testing Framework
-
-### Thread-Safe Testing
-The testing framework handles multi-threaded actor coordination automatically. Test scenarios can inject messages, trigger specific actor behaviors, and verify outcomes across multiple threads without manual synchronization.
-
-### Stage Management
-Integration tests use stage managers to orchestrate complex multi-actor scenarios, directing specific actors to perform actions and waiting for expected results across the entire system.
-
-## Threading Advantages
-
-| Traditional Approach | Actor Model Approach |
-|---------------------|---------------------|
-| Shared memory + locks | Isolated memory + messages |
-| Manual thread coordination | Framework-managed lifecycle |
-| Difficult testing | Built-in test support |
-| Race condition debugging | Race conditions impossible |
-| Complex shutdown logic | Cooperative shutdown |
-
-## Usage
-
-```bash
-cargo run                           # Default: 1s rate, 60 beats
-cargo run -- --rate 100 --beats 20 # Fast: 100ms rate, 20 beats
-cargo test                          # Run all tests including multi-threaded scenarios
+```
+Generator ──→ Worker ←── Heartbeat
+                │
+                ▼
+              Logger
 ```
 
-## Key Capabilities
+### Data Flow Components
 
-- **Thread-per-actor isolation** eliminates concurrency bugs
-- **Automatic coordination** across multiple threads
-- **Graceful shutdown** propagates through all threads
-- **Built-in monitoring** tracks per-thread CPU and performance
-- **Crash-resilient state** survives individual thread failures
-- **Comprehensive testing** validates multi-threaded behavior
-- **Zero-configuration** thread management
+**Generator Actor**
+- Produces continuous data stream with incrementing values
+- Maintains persistent state across restarts
+- Demonstrates backpressure handling with `SendSaturation::AwaitForRoom`
 
-This threading model scales from simple utilities to complex distributed systems while maintaining deterministic, race-free behavior across all threads.
+**Heartbeat Actor**
+- Controls system timing with configurable intervals
+- Triggers batch processing in downstream actors
+- Can initiate system-wide shutdown after configured beat count
 
+**Worker Actor**
+- Coordinates multiple input streams (generator data + heartbeat timing)
+- Processes data in batches triggered by heartbeat signals
+- Transforms data using business logic (FizzBuzz in this example)
+- Demonstrates complex shutdown coordination
+
+**Logger Actor**
+- Consumes processed messages for output/storage
+- Handles side effects without blocking the pipeline
+- Shows event-driven processing patterns
+
+### Notable APIs
+
+- `SteadyState<T>` – Persistent actor state that survives restarts
+- `await_for_all!()` – Coordinate multiple async conditions
+- `cmd.take_into_iter()` – Efficient batch message processing
+- `cmd.send_async()` – Backpressure-aware message sending
+- `Threading::Spawn` – Dedicated thread per actor for isolation
+
+### Advanced Features Demonstrated
+
+#### Dual-Mode Operation
+```rust
+if cmd.use_internal_behavior {
+    internal_behavior(cmd, channels, state).await
+} else {
+    cmd.simulated_behavior(vec!(&tx)).await
+}
+```
+
+#### State Persistence
+```rust
+let mut state = state.lock(|| GeneratorState {value: 0}).await;
+// State survives actor panics and restarts
+```
+
+#### Multi-Condition Coordination
+```rust
+await_for_all!(
+    cmd.wait_avail(&mut heartbeat, 1),
+    cmd.wait_avail(&mut generator, 1), 
+    cmd.wait_vacant(&mut logger, 1)
+);
+```
+
+### Observing Your Production Actor System
+
+**Built-in Metrics**
+- Load averaging, CPU utilization, channel fill rates
+
+**Configurable Alerting**
+- Threshold-based notifications for system health
+
+**Statistical Monitoring**
+- Percentile-based performance tracking
+
+**Thread Isolation**
+- Per-actor performance measurement
+
+**Telemetry Dashboard**
+- Telemetry: http://127.0.0.1:9900
+- Graph: http://127.0.0.1:9900/graph.dot
+
+```dot
+digraph G {
+    rankdir=LR;
+    "generator" [label="generator\nWindow 10.2s\nAvg mCPU: 0042\nLoad: 23%"];
+    "heartbeat" [label="heartbeat\nWindow 10.2s\nAvg mCPU: 0008\nLoad: 5%"];  
+    "worker" [label="worker\nWindow 10.2s\nAvg mCPU: 0156\nLoad: 45%"];
+    "logger" [label="logger\nWindow 10.2s\nAvg mCPU: 0089\nLoad: 27%"];
+    "generator" -> "worker" [label="89% filled"];
+    "heartbeat" -> "worker" [label="12% filled"];
+    "worker" -> "logger" [label="45% filled"];
+}
+```
+
+**Prometheus Integration**
+- Metrics: http://127.0.0.1:9900/metrics
+
+```prometheus
+# CPU utilization per actor
+avg_mCPU{actor_name="generator"} 42
+avg_mCPU{actor_name="heartbeat"} 8
+avg_mCPU{actor_name="worker"} 156
+avg_mCPU{actor_name="logger"} 89
+
+# Load distribution 
+load_avg{actor_name="generator"} 0.23
+load_avg{actor_name="worker"} 0.45
+
+# Channel utilization
+filled_p80{channel="generator_to_worker"} 0.89
+filled_p80{channel="heartbeat_to_worker"} 0.12
+```
+
+## 🚀 Running the App
+
+```bash
+# Default: 1 second intervals, 60 beats total
+cargo run
+
+# Fast mode: 100ms intervals, 20 beats
+cargo run -- --rate 100 --beats 20
+
+# Slow mode: 2 second intervals, 5 beats  
+cargo run -- --rate 2000 --beats 5
+
+# Run all tests including multi-threaded scenarios
+cargo test
+
+# Verbose logging to see detailed actor behavior
+RUST_LOG=info cargo run
+```
+
+### Expected Output
+
+```bash
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.34s
+Running `target/debug/standard`
+Telemetry on http://127.0.0.1:9900
+Prometheus can scrape on http://127.0.0.1:9900/metrics
+[2025-05-26 18:11:07.123] T[heartbeat] INFO Heartbeat 0 sent
+[2025-05-26 18:11:07.124] T[logger] INFO Msg FizzBuzz
+[2025-05-26 18:11:07.124] T[logger] INFO Msg Value(1) 
+[2025-05-26 18:11:07.124] T[logger] INFO Msg Value(2)
+[2025-05-26 18:11:07.125] T[logger] INFO Msg Fizz
+...
+[2025-05-26 18:12:06.891] T[heartbeat] INFO request shutdown
+Process finished with exit code 0
+```
+
+## 🧪 Testing Framework
+
+### Unit Testing
+
+Each actor can be tested in isolation with deterministic behavior:
+
+```rust
+#[test]
+fn test_generator() -> Result<(), Box<dyn Error>> {
+    let mut graph = GraphBuilder::for_testing().build(MainArg::default());
+    // Test individual actor behavior
+    assert_steady_rx_eq_take!(generate_rx, vec!(0,1));
+}
+```
+
+### Integration Testing
+
+Stage managers orchestrate complex multi-actor scenarios:
+
+```rust
+#[test] 
+fn graph_test() -> Result<(), Box<dyn Error>> {
+    let stage_manager = graph.stage_manager();
+    stage_manager.actor_perform(NAME_GENERATOR, StageDirection::Echo(15u64))?;
+    stage_manager.actor_perform(NAME_LOGGER, StageWaitFor::Message(msg, timeout))?;
+}
+```
+
+### Log Verification
+
+Side effects can be verified through structured log capture:
+
+```rust
+#[test]
+fn test_logger() -> Result<(), Box<dyn Error>> {
+    let _guard = start_log_capture();
+    // Run test scenario
+    assert_in_logs!(["Msg Fizz"]);
+}
+```
+
+## 🚀 Learning Path
+
+Need to review fundamentals? Start with the Minimal Example to understand core actor concepts.
+
+Ready for specialized patterns? Explore these examples in any order based on your needs:
+- **steady-state-robust**: Specialized durable solutions defending against panics and failures
+- **steady-state-performant**: High-throughput, low-latency optimization techniques
+- **steady-state-distributed**: Spanning applications across pods, nodes, and networks
+
+This standard example demonstrates the production-ready patterns you'll use in real applications: state management, multi-actor coordination, comprehensive testing, and runtime configuration. These patterns scale from simple utilities to complex distributed systems while maintaining deterministic, race-free behavior.
