@@ -1,254 +1,280 @@
-# Steady State Standard Example
+# Steady State Standard Project
 
-A production-ready actor system demonstrating advanced concurrent programming patterns with the [`steady_state`](https://crates.io/crates/steady_state) framework. This example builds on the minimal foundation to show real-world patterns including state persistence, multi-actor coordination, batch processing, and comprehensive testing.
+A production-grade example of actor-based concurrent programming in Rust using the [`steady_state`](https://crates.io/crates/steady_state) framework.
+
+This project builds on the minimal example and demonstrates real-world actor patterns:
+- Multi-actor pipelines and message routing
+- Timed batch coordination using heartbeat signals
+- Persistent state across restarts
+- Complex shutdown sequencing
+- Observability with built-in metrics and Prometheus integration
+- Comprehensive unit and integration testing patterns
+
+---
 
 ## 🎯 Why This Example is "Standard"
 
-This lesson focuses on production-ready actor patterns:
-- Multi-actor coordination and data flow pipelines
-- Persistent state management across restarts
-- Batch processing with timing control
-- Comprehensive testing strategies
-- Runtime configuration and monitoring
+This lesson moves beyond the minimal example and teaches production-capable actor system design.
 
-**Building on**: The minimal example's core concepts of actors, coordination, and shutdown.
+It covers:
+- Multi-actor coordination with distinct roles and inputs
+- Timing-driven batch processing using shared signals
+- Persistent actor state (survives panics and restarts)
+- Real-time metrics, CPU usage, and system throughput
+- Clean and coordinated shutdown logic
+- Configurable alerting and dashboard integration
+- Dual-mode testing (unit + pipeline)
+
+**Built on**: The foundational concepts introduced in the minimal example—safe concurrency, isolated actors, and shutdown orchestration.
+
+---
 
 ## 🎯 Overview
 
-This project demonstrates advanced features of actor-based architecture:
+This project demonstrates advanced actor model features in a structured pipeline:
 
-- **Multi-Actor Pipelines**: Coordinated data flow between specialized actors
-- **State Persistence**: Actor state survives crashes and restarts
-- **Batch Processing**: Timing-controlled bulk operations
-- **Dual-Mode Testing**: Same code runs in production and test modes
-- **Runtime Configuration**: Command-line arguments control behavior
-- **Built-in Monitoring**: Performance metrics and alerting
+- **Generator** – continuously produces data with persistent state
+- **Heartbeat** – sends timing signals and initiates graceful shutdown
+- **Worker** – batches data on heartbeat events and applies processing logic (e.g. FizzBuzz)
+- **Logger** – logs and finalizes messages without blocking upstream actors
+
+Together, these actors form a real-world pipeline controlled by timing, backpressure, and safe concurrency.
+
+---
 
 ## 🧠 Key Concepts
 
-### Threading Model Evolution
-
-| Minimal Example          | Standard Example           |
-|--------------------------|----------------------------|
-| Single actor demonstration | Multi-actor coordination |
-| Basic timing patterns     | Complex flow control       |
-| Simple shutdown           | Cooperative pipeline shutdown |
-| Foundation concepts       | Production patterns        |
-
 ### Actor Specialization Patterns
 
-- **Generator**: Continuous data production with persistent state
-- **Heartbeat**: Timing control and lifecycle management
-- **Worker**: Batch processing coordinator with multiple inputs
-- **Logger**: Message consumption and side effect handling
+| Actor Name | Purpose |
+|------------|---------|
+| **Generator** | Produces a stream of values and maintains a counter |
+| **Heartbeat** | Emits periodic timing signals and triggers shutdown |
+| **Worker** | Waits for signals + data, processes batches (e.g. FizzBuzz logic) |
+| **Logger** | Outputs processed messages; demonstrates async side effects |
 
-### Advanced Coordination
+This modular approach simplifies debugging, upgrades, and testing—each actor is replaceable, testable, and independent.
 
-- **Multi-Input Actors**: Workers coordinate between timing signals and data streams
-- **Backpressure Management**: Automatic flow control prevents system overload
-- **Graceful Pipeline Shutdown**: Messages drain completely before termination
-- **State Recovery**: Persistent counters survive actor restarts
+---
 
-## 📋 System Architecture
+### Persistent Actor State
 
-```
-Generator ──→ Worker ←── Heartbeat
-                │
-                ▼
-              Logger
-```
+Actors maintain internal state across restarts. If an actor panics or crashes, its last known state is automatically restored using the `SteadyState<T>` wrapper.
 
-### Data Flow Components
+Example use cases:
+- Counters
+- Retry tracking
+- Long-lived processing state
 
-**Generator Actor**
-- Produces continuous data stream with incrementing values
-- Maintains persistent state across restarts
-- Demonstrates backpressure handling with `SendSaturation::AwaitForRoom`
+This eliminates the need for external storage just to recover progress.
 
-**Heartbeat Actor**
-- Controls system timing with configurable intervals
-- Triggers batch processing in downstream actors
-- Can initiate system-wide shutdown after configured beat count
+---
 
-**Worker Actor**
-- Coordinates multiple input streams (generator data + heartbeat timing)
-- Processes data in batches triggered by heartbeat signals
-- Transforms data using business logic (FizzBuzz in this example)
-- Demonstrates complex shutdown coordination
+### Timed Batch Processing
 
-**Logger Actor**
-- Consumes processed messages for output/storage
-- Handles side effects without blocking the pipeline
-- Shows event-driven processing patterns
+The **Heartbeat** actor emits signals on a fixed interval (e.g., every 1 second). The **Worker** waits until:
+1. A heartbeat signal is received
+2. Data is available from the Generator
+3. Output capacity is available to forward results
 
-### Notable APIs
+This design allows deterministic, load-sensitive batch behavior.
 
-- `SteadyState<T>` – Persistent actor state that survives restarts
-- `await_for_all!()` – Coordinate multiple async conditions
-- `cmd.take_into_iter()` – Efficient batch message processing
-- `cmd.send_async()` – Backpressure-aware message sending
-- `Threading::Spawn` – Dedicated thread per actor for isolation
+---
 
-### Advanced Features Demonstrated
+### Coordinated Shutdown Logic
 
-#### Dual-Mode Operation
-```rust
-if cmd.use_internal_behavior {
-    internal_behavior(cmd, channels, state).await
-} else {
-    cmd.simulated_behavior(vec!(&tx)).await
-}
-```
+The Heartbeat actor keeps a beat count and eventually requests system shutdown.
 
-#### State Persistence
-```rust
-let mut state = state.lock(|| GeneratorState {value: 0}).await;
-// State survives actor panics and restarts
-```
+When shutdown is requested:
+- Each actor finishes its in-progress work
+- Channels are drained
+- Final logs are flushed
+- All actors confirm readiness before exiting
 
-#### Multi-Condition Coordination
-```rust
-await_for_all!(
-    cmd.wait_avail(&mut heartbeat, 1),
-    cmd.wait_avail(&mut generator, 1), 
-    cmd.wait_vacant(&mut logger, 1)
-);
-```
+This clean, cooperative termination avoids data loss and partial computation.
 
-### Observing Your Production Actor System
+---
 
-**Built-in Metrics**
-- Load averaging, CPU utilization, channel fill rates
+### Backpressure Management
 
-**Configurable Alerting**
-- Threshold-based notifications for system health
+Actors use backpressure-aware methods like:
+- `cmd.wait_vacant()` – wait until output channel has room
+- `cmd.send_async(..., SendSaturation::AwaitForRoom)` – throttle producers
 
-**Statistical Monitoring**
-- Percentile-based performance tracking
+This prevents:
+- Channel overflow
+- Memory exhaustion
+- Queue delays
 
-**Thread Isolation**
-- Per-actor performance measurement
+and helps maintain predictable latency under load.
 
-**Telemetry Dashboard**
-- Telemetry: http://127.0.0.1:9900
-- Graph: http://127.0.0.1:9900/graph.dot
+---
+
+### Monitoring and Observability
+
+You can view:
+- Actor CPU utilization (avg mCPU)
+- Channel fill rates (backpressure)
+- Message throughput
+- Load per actor and per channel
+
+This includes:
+- **Telemetry dashboard** at `http://127.0.0.1:9900`
+- **Prometheus metrics** at `http://127.0.0.1:9900/metrics`
+- **DOT graph** of actor relationships at `http://127.0.0.1:9900/graph.dot`
+
+These help answer questions like:
+- Which actor is overloaded?
+- Are any channels full?
+- Is processing falling behind?
+
+---
+
+## 📋 Project Structure
+
+- **generator.rs** – Stateful, backpressure-aware producer
+- **heartbeat.rs** – Timing source and shutdown trigger
+- **worker.rs** – Batch processor that responds to timing and input
+- **logger.rs** – Passive consumer of completed results
+- **main.rs** – Initializes actors, wires channels, starts system
+
+Channel usage is defined with configurable triggers (p60, p90 fill alerting), and actor threading uses isolated per-thread execution for performance and safety.
+
+---
+
+## 🛠 Notable Features Introduced
+
+| Feature                     | Description                                                                 |
+|----------------------------|-----------------------------------------------------------------------------|
+| `SteadyState<T>`           | Actor-local state persisted across restarts                                 |
+| `await_for_all!()`         | Wait for multiple conditions concurrently                                   |
+| `cmd.send_async(...).await`| Throttle messages based on downstream availability                          |
+| `cmd.is_running()`         | Coordinated shutdown condition checking                                     |
+| `cmd.request_shutdown()`   | Triggers system-wide cooperative shutdown                                   |
+| `Threading::Spawn`         | One thread per actor – safe and simple to reason about                      |
+
+---
+
+## 📊 Observing Actor Behavior
+
+### Telemetry
+- Dashboard: [http://127.0.0.1:9900](http://127.0.0.1:9900)
+- DOT Graph: [http://127.0.0.1:9900/graph.dot](http://127.0.0.1:9900/graph.dot)
 
 ```dot
 digraph G {
-    rankdir=LR;
-    "generator" [label="generator\nWindow 10.2s\nAvg mCPU: 0042\nLoad: 23%"];
-    "heartbeat" [label="heartbeat\nWindow 10.2s\nAvg mCPU: 0008\nLoad: 5%"];  
-    "worker" [label="worker\nWindow 10.2s\nAvg mCPU: 0156\nLoad: 45%"];
-    "logger" [label="logger\nWindow 10.2s\nAvg mCPU: 0089\nLoad: 27%"];
-    "generator" -> "worker" [label="89% filled"];
-    "heartbeat" -> "worker" [label="12% filled"];
-    "worker" -> "logger" [label="45% filled"];
+rankdir=LR;
+graph [nodesep=.5, ranksep=2.5];
+node [margin=0.1];
+node [style=filled, fillcolor=white, fontcolor=black];
+edge [color=white, fontcolor=white];
+graph [bgcolor=black];
+"heartbeat" [label="heartbeat
+Window 10.2 secs
+Avg load: 2 %
+Avg mCPU: 0000 
+", color=grey, penwidth=3 ];
+"generator" [label="generator
+Window 10.2 secs
+Avg load: 1 %
+Avg mCPU: 0002 
+", color=grey, penwidth=3 ];
+"worker" [label="worker
+Window 10.2 secs
+Avg load: 0 %
+Avg mCPU: 0000 
+", color=grey, penwidth=3 ];
+"logger" [label="logger
+Window 10.2 secs
+Avg load: 6 %
+Avg mCPU: 0013 
+", color=grey, penwidth=3 ];
+"heartbeat" -> "worker" [label="Window 10.2 secs
+filled 80%ile 0 %
+Capacity: 64 Total: 19
+", color=grey, penwidth=1];
+"generator" -> "worker" [label="Window 10.2 secs
+filled 80%ile 100 %
+Capacity: 64 Total: 1,130
+", color=red, penwidth=1];
+"worker" -> "logger" [label="Window 10.2 secs
+filled 80%ile 0 %
+Capacity: 64 Total: 1,130
+", color=grey, penwidth=1];
 }
 ```
 
-**Prometheus Integration**
-- Metrics: http://127.0.0.1:9900/metrics
+### Prometheus
+- Metrics endpoint: [http://127.0.0.1:9900/metrics](http://127.0.0.1:9900/metrics)
 
 ```prometheus
-# CPU utilization per actor
-avg_mCPU{actor_name="generator"} 42
-avg_mCPU{actor_name="heartbeat"} 8
-avg_mCPU{actor_name="worker"} 156
-avg_mCPU{actor_name="logger"} 89
-
-# Load distribution 
-load_avg{actor_name="generator"} 0.23
-load_avg{actor_name="worker"} 0.45
-
-# Channel utilization
-filled_p80{channel="generator_to_worker"} 0.89
-filled_p80{channel="heartbeat_to_worker"} 0.12
+avg_load{actor_name="heartbeat"} 2
+avg_mCPU{actor_name="heartbeat"} 0
+avg_load{actor_name="generator"} 2
+avg_mCPU{actor_name="generator"} 2
+avg_load{actor_name="worker"} 0
+avg_mCPU{actor_name="worker"} 0
+avg_load{actor_name="logger"} 6
+avg_mCPU{actor_name="logger"} 17
+inflight{from="heartbeat", to="worker"} 0
+send_total{from="heartbeat", to="worker"} 22
+take_total{from="heartbeat", to="worker"} 22
+percentile_filled{from="heartbeat", to="worker", p=8000} 0
+inflight{from="generator", to="worker"} 64
+send_total{from="generator", to="worker"} 1386
+take_total{from="generator", to="worker"} 1322
+percentile_filled{from="generator", to="worker", p=8000} 100
+inflight{from="worker", to="logger"} 0
+send_total{from="worker", to="logger"} 1322
+take_total{from="worker", to="logger"} 1322
+percentile_filled{from="worker", to="logger", p=8000} 0
 ```
+
+---
 
 ## 🚀 Running the App
 
 ```bash
-# Default: 1 second intervals, 60 beats total
-cargo run
-
-# Fast mode: 100ms intervals, 20 beats
-cargo run -- --rate 100 --beats 20
-
-# Slow mode: 2 second intervals, 5 beats  
-cargo run -- --rate 2000 --beats 5
-
-# Run all tests including multi-threaded scenarios
-cargo test
-
-# Verbose logging to see detailed actor behavior
-RUST_LOG=info cargo run
+cargo run -- --rate 500 --beats 10
 ```
 
-### Expected Output
+Other modes:
 
-```bash
-Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.34s
-Running `target/debug/standard`
-Telemetry on http://127.0.0.1:9900
-Prometheus can scrape on http://127.0.0.1:9900/metrics
-[2025-05-26 18:11:07.123] T[heartbeat] INFO Heartbeat 0 sent
-[2025-05-26 18:11:07.124] T[logger] INFO Msg FizzBuzz
-[2025-05-26 18:11:07.124] T[logger] INFO Msg Value(1) 
-[2025-05-26 18:11:07.124] T[logger] INFO Msg Value(2)
-[2025-05-26 18:11:07.125] T[logger] INFO Msg Fizz
-...
-[2025-05-26 18:12:06.891] T[heartbeat] INFO request shutdown
-Process finished with exit code 0
-```
+- Fast mode: `cargo run -- --rate 100 --beats 20`
+- Slow mode: `cargo run -- --rate 2000 --beats 5`
+- Verbose logs: `RUST_LOG=info cargo run`
+
+Output should include heartbeat, generated values, processed FizzBuzz messages, and system shutdown when all beats are completed.
+
+---
 
 ## 🧪 Testing Framework
 
-### Unit Testing
+This project includes both **unit tests** and **integration tests**:
 
-Each actor can be tested in isolation with deterministic behavior:
+- **Unit**: Verify actor behavior in isolation (e.g., generator produces `0,1,2...`)
+- **Integration**: Build full pipeline and run simulated end-to-end
+- **Log-based assertions**: Ensure output and side effects match expectations
 
-```rust
-#[test]
-fn test_generator() -> Result<(), Box<dyn Error>> {
-    let mut graph = GraphBuilder::for_testing().build(MainArg::default());
-    // Test individual actor behavior
-    assert_steady_rx_eq_take!(generate_rx, vec!(0,1));
-}
+Run:
+```bash
+cargo test
 ```
 
-### Integration Testing
+---
 
-Stage managers orchestrate complex multi-actor scenarios:
+## 🧭 Learning Path
 
-```rust
-#[test] 
-fn graph_test() -> Result<(), Box<dyn Error>> {
-    let stage_manager = graph.stage_manager();
-    stage_manager.actor_perform(NAME_GENERATOR, StageDirection::Echo(15u64))?;
-    stage_manager.actor_perform(NAME_LOGGER, StageWaitFor::Message(msg, timeout))?;
-}
-```
+This example is the second step in the Steady State learning journey:
 
-### Log Verification
+1. **steady-state-minimal**: Intro to actors, timing, and shutdown
+2. ✅ **steady-state-standard**: Production patterns and best practices
+3. **steady-state-robust**: Panic recovery, retries, and fault isolation
+4. **steady-state-performant**: High-throughput pipelines and message volume optimization
+5. **steady-state-distributed**: Cluster-wide graphs and cross-node actor systems
 
-Side effects can be verified through structured log capture:
+Each example builds in complexity and capability—choose the right pattern based on your current project needs.
 
-```rust
-#[test]
-fn test_logger() -> Result<(), Box<dyn Error>> {
-    let _guard = start_log_capture();
-    // Run test scenario
-    assert_in_logs!(["Msg Fizz"]);
-}
-```
+---
 
-## 🚀 Learning Path
-
-Need to review fundamentals? Start with the Minimal Example to understand core actor concepts.
-
-Ready for specialized patterns? Explore these examples in any order based on your needs:
-- **steady-state-robust**: Specialized durable solutions defending against panics and failures
-- **steady-state-performant**: High-throughput, low-latency optimization techniques
-- **steady-state-distributed**: Spanning applications across pods, nodes, and networks
-
-This standard example demonstrates the production-ready patterns you'll use in real applications: state management, multi-actor coordination, comprehensive testing, and runtime configuration. These patterns scale from simple utilities to complex distributed systems while maintaining deterministic, race-free behavior.
+_The Steady State Standard project is your blueprint for building reliable, observable, and maintainable concurrent Rust systems using the actor model._

@@ -47,15 +47,14 @@ fn test_logger() -> Result<(), Box<dyn std::error::Error>> {
     graph.actor_builder().with_name("UnitTest")
         .build(move |context| {
             internal_behavior(context, fizz_buzz_rx.clone())
-        }
-               , &mut Threading::Spawn);
+        }, &mut Threading::Spawn);
 
     graph.start();
     // Testing infrastructure provides message injection capabilities
     // for precise control over actor input during verification.
     fizz_buzz_tx.testing_send_all(vec![FizzBuzzMessage::Fizz],true);
-    std::thread::sleep(Duration::from_millis(300));
-    graph.request_stop();
+
+    graph.request_shutdown();
     graph.block_until_stopped(Duration::from_secs(10000))?;
     // Log assertion macros enable verification of logging behavior
     // across multi-threaded execution environments.

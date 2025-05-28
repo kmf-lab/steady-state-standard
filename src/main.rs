@@ -18,7 +18,7 @@ pub(crate) mod actor {
 fn main() -> Result<(), Box<dyn Error>> {
 
     let cli_args = MainArg::parse();
-    let _ = init_logging(LogLevel::Info);
+    init_logging(LogLevel::Info)?;
     let mut graph = GraphBuilder::default()
         .build(cli_args);
 
@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Blocking wait with timeout prevents infinite hangs while allowing
     // graceful shutdown completion. The timeout should exceed expected
     // cleanup duration to avoid premature termination.
-    graph.block_until_stopped(Duration::from_secs(1))
+    graph.block_until_stopped(Duration::from_secs(5))
 }
 
 /// Actor name constants enable refactoring safety and consistent identification.
@@ -133,9 +133,9 @@ pub(crate) mod main_tests {
                                                                           , Duration::from_secs(2)))?;
         stage_manager.final_bow();
 
-        graph.request_stop();
+        graph.request_shutdown();
 
-        graph.block_until_stopped(Duration::from_secs(1))
+        graph.block_until_stopped(Duration::from_secs(5))
 
     }
 }

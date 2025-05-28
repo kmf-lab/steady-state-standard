@@ -50,7 +50,6 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C
         // This pattern is useful for batch jobs, scheduled tasks, or demo applications
         // that need to terminate after completing their work.
         if beats == state.count {
-            info!("request shutdown");
             cmd.request_shutdown().await;
         }
     }
@@ -82,7 +81,7 @@ pub(crate) mod heartbeat_tests {
         // Timing-based testing requires careful coordination between test duration
         // and expected actor behavior to ensure deterministic results.
         std::thread::sleep(Duration::from_millis(1000 * 3));
-        graph.request_stop();
+        graph.request_shutdown();
         graph.block_until_stopped(Duration::from_secs(1))?;
         assert_steady_rx_eq_take!(&heartbeat_rx, vec!(0,1));
         Ok(())

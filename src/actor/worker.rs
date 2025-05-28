@@ -76,17 +76,15 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C
                                   , cmd.wait_vacant(&mut logger, 1)
         );
 
-        if let Some(_h) = cmd.try_take(&mut heartbeat) {
+        //if we have a heartbeat or a stop request then we need to process some work
+        if cmd.try_take(&mut heartbeat).is_some() || cmd.is_liveliness_stop_requested() {
             //check for how much work and how much room we have before we begin
-            let mut items = cmd.avail_units(&mut generator).min(cmd.vacant_units(&mut logger));
-            loop {
+            let mut items = cmd.avail_units(&mut generator).min(cmd.vacant_units(&mut logger));           
+            while items>0 {                
                 let item = cmd.try_take(&mut generator).expect("internal error");
                 cmd.try_send(&mut logger,  FizzBuzzMessage::new(item)).expect("internal error");
                 items -= 1;
-                if 0==items {
-                    break;
-                }                
-            } 
+            }
         }
     }
     Ok(())
@@ -115,13 +113,12 @@ pub(crate) mod worker_tests {
                    , &mut Threading::Spawn
             );
 
+        
         generate_tx.testing_send_all(vec![0,1,2,3,4,5], true);
         heartbeat_tx.testing_send_all(vec![0], true);
         graph.start();
-
-        std::thread::sleep(Duration::from_millis(80));
-
-        graph.request_stop();
+        // because shutdown waits for closed and empty, it does not happen until our test data is digested. 
+        graph.request_shutdown();
         graph.block_until_stopped(Duration::from_secs(1))?;
         assert_steady_rx_eq_take!(&logger_rx, [FizzBuzzMessage::FizzBuzz
                                               ,FizzBuzzMessage::Value(1)

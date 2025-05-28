@@ -62,8 +62,10 @@ pub(crate) mod generator_tests {
             .build_spawn(move |context| internal_behavior(context, generate_tx.clone(), state.clone()) );
 
         graph.start();
+        // Timing-based testing requires careful coordination between test duration
+        // and expected actor behavior to ensure deterministic results.
         std::thread::sleep(Duration::from_millis(100));
-        graph.request_stop();
+        graph.request_shutdown();
 
         graph.block_until_stopped(Duration::from_secs(1))?;
 
