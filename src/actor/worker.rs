@@ -33,6 +33,7 @@ pub async fn run(context: SteadyContext
                  , heartbeat: SteadyRx<u64> //the type can be any struct or primitive or enum...
                  , generator: SteadyRx<u64>
                  , logger: SteadyTx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
+    //this is NOT on the edge of the graph so we do not want to simulate it as it will be tested by its simulated neighbors
     internal_behavior(context.into_monitor([&heartbeat, &generator], [&logger]), heartbeat, generator, logger).await
 }
 
@@ -110,7 +111,7 @@ pub(crate) mod worker_tests {
                                                     , heartbeat_rx.clone()
                                                     , generate_rx.clone()
                                                     , logger_tx.clone())
-                   , &mut Threading::Spawn
+                   , SoloAct
             );
 
         

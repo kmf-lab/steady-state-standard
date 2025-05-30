@@ -73,8 +73,8 @@ pub(crate) mod heartbeat_tests {
         let state = new_state();
         graph.actor_builder()
             .with_name("UnitTest")
-            .build_spawn(move |context|
-                internal_behavior(context, heartbeat_tx.clone(), state.clone())
+            .build(move |context|
+                internal_behavior(context, heartbeat_tx.clone(), state.clone()), SoloAct
             );
 
         graph.start();

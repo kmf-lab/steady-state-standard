@@ -47,7 +47,7 @@ fn test_logger() -> Result<(), Box<dyn std::error::Error>> {
     graph.actor_builder().with_name("UnitTest")
         .build(move |context| {
             internal_behavior(context, fizz_buzz_rx.clone())
-        }, &mut Threading::Spawn);
+        }, SoloAct);
 
     graph.start();
     // Testing infrastructure provides message injection capabilities
