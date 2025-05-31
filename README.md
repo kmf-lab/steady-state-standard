@@ -235,7 +235,7 @@ percentile_filled{from="worker", to="logger", p=8000} 0
 ## 🚀 Running the App
 
 ```bash
-cargo run -- --rate 500 --beats 10
+cargo run -- --rate 500 --beats 60
 ```
 
 Other modes:
