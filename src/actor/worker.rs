@@ -29,18 +29,18 @@ impl FizzBuzzMessage {
 /// Multi-input coordination actor demonstrating complex data flow patterns.
 /// Worker actors commonly integrate multiple data streams with different timing
 /// characteristics while maintaining processing order and system responsiveness.
-pub async fn run(context: SteadyContext
+pub async fn run(actor: SteadyActorShadow
                  , heartbeat: SteadyRx<u64> //the type can be any struct or primitive or enum...
                  , generator: SteadyRx<u64>
                  , logger: SteadyTx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
     //this is NOT on the edge of the graph so we do not want to simulate it as it will be tested by its simulated neighbors
-    internal_behavior(context.into_monitor([&heartbeat, &generator], [&logger]), heartbeat, generator, logger).await
+    internal_behavior(actor.into_spotlight([&heartbeat, &generator], [&logger]), heartbeat, generator, logger).await
 }
 
 /// Batch processing pattern triggered by external timing signals enables efficient
 /// bulk operations while maintaining responsive timing control and proper resource
 /// utilization across variable load conditions.
-async fn internal_behavior<C: SteadyCommander>(mut cmd: C
+async fn internal_behavior<A: SteadyActor>(mut actor: A
                                                , heartbeat: SteadyRx<u64> //the type can be any struct or primitive or enum...
                                                , generator: SteadyRx<u64>
                                                , logger: SteadyTx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
@@ -55,7 +55,7 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C
     // debug 'why' a actor might refuse to shut down we put 'eyes' the i! macro around each boolean.  The i! macros will simply
     // pass thru the boolean value but also capture and reports which one returned false in the event of an unclean shutdown.
 
-    while cmd.is_running(|| i!(heartbeat.is_closed_and_empty()) && i!(generator.is_closed_and_empty()) && i!(logger.mark_closed())) {
+    while actor.is_running(|| i!(heartbeat.is_closed_and_empty()) && i!(generator.is_closed_and_empty()) && i!(logger.mark_closed())) {
 
         // There are many ways to design an actor, but this is the standard approach to use as the default.
         // Put all the required needs into a single await_for macro call, we have 3 different macros to choose from,
@@ -72,18 +72,18 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C
         // The await_for macros all return a boolean 'clean' which is true if all the conditions were met, this will be
         // false if it had to exit early due to a shutdown in progress.
 
-        let _clean = await_for_all!(cmd.wait_avail(&mut heartbeat,1)
-                                  , cmd.wait_avail(&mut generator,1)
-                                  , cmd.wait_vacant(&mut logger, 1)
+        let _clean = await_for_all!(actor.wait_avail(&mut heartbeat,1)
+                                  , actor.wait_avail(&mut generator,1)
+                                  , actor.wait_vacant(&mut logger, 1)
         );
 
         //if we have a heartbeat or a stop request then we need to process some work
-        if cmd.try_take(&mut heartbeat).is_some() || cmd.is_liveliness_stop_requested() {
+        if actor.try_take(&mut heartbeat).is_some() || actor.is_liveliness_stop_requested() {
             //check for how much work and how much room we have before we begin
-            let mut items = cmd.avail_units(&mut generator).min(cmd.vacant_units(&mut logger));           
+            let mut items = actor.avail_units(&mut generator).min(actor.vacant_units(&mut logger));           
             while items>0 {                
-                let item = cmd.try_take(&mut generator).expect("internal error");
-                cmd.try_send(&mut logger,  FizzBuzzMessage::new(item)).expect("internal error");
+                let item = actor.try_take(&mut generator).expect("internal error");
+                actor.try_send(&mut logger, FizzBuzzMessage::new(item)).expect("internal error");
                 items -= 1;
             }
         }

@@ -4,26 +4,26 @@ use crate::actor::worker::FizzBuzzMessage;
 /// Simple consumer actor demonstrating reactive message processing.
 /// Logger actors typically have no outgoing channels and focus on
 /// efficient message consumption and external system integration.
-pub async fn run(context: SteadyContext, fizz_buzz_rx: SteadyRx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
-    let cmd = context.into_monitor([&fizz_buzz_rx], []);
-    if cmd.use_internal_behavior {
-        internal_behavior(cmd, fizz_buzz_rx).await
+pub async fn run(actor: SteadyActorShadow, fizz_buzz_rx: SteadyRx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
+    let actor = actor.into_spotlight([&fizz_buzz_rx], []);
+    if actor.use_internal_behavior {
+        internal_behavior(actor, fizz_buzz_rx).await
     } else {
-        cmd.simulated_behavior(vec!(&fizz_buzz_rx)).await
+        actor.simulated_behavior(vec!(&fizz_buzz_rx)).await
     }
 }
 
 /// Event-driven processing pattern for immediate message handling.
 /// This approach ensures minimal latency between message arrival and processing,
 /// making it ideal for logging, monitoring, and real-time notification systems.
-async fn internal_behavior<C: SteadyCommander>(mut cmd: C, rx: SteadyRx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
+async fn internal_behavior<A: SteadyActor>(mut actor: A, rx: SteadyRx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
     let mut rx = rx.lock().await;
     // Termination condition waits for channel closure and message drainage.
     // This ensures all messages are processed before the actor terminates,
     // preventing data loss during shutdown sequences.
-    while cmd.is_running(|| rx.is_closed_and_empty()) {
-        await_for_all!(cmd.wait_avail(&mut rx, 1));
-        if let Some(msg) = cmd.try_take(&mut rx) {
+    while actor.is_running(|| rx.is_closed_and_empty()) {
+        await_for_all!(actor.wait_avail(&mut rx, 1));
+        if let Some(msg) = actor.try_take(&mut rx) {
             // Message processing with structured logging integration.
             // The framework automatically handles log formatting, threading,
             // and output routing based on configuration.

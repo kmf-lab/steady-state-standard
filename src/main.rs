@@ -81,26 +81,26 @@ fn build_graph(graph: &mut Graph) {
     // fault-tolerant operation without external persistence mechanisms.
     let state = new_state();
     actor_builder.with_name(NAME_HEARTBEAT)
-        .build(move |context| { actor::heartbeat::run(context, heartbeat_tx.clone(), state.clone()) }
+        .build(move |actor| { actor::heartbeat::run(actor, heartbeat_tx.clone(), state.clone()) }
                , SoloAct); 
 
     let state = new_state();
     actor_builder.with_name(NAME_GENERATOR)
-        .build(move |context| { actor::generator::run(context, generator_tx.clone(), state.clone()) }
+        .build(move |actor| { actor::generator::run(actor, generator_tx.clone(), state.clone()) }
                , SoloAct); //  Role::, Part::, Kind:: RoleType::    Act:Solo     Act::Ensemble
 
     // Multi-input actors demonstrate complex data flow coordination.
     // The worker receives timing signals from heartbeat and data from generator,
     // enabling controlled batch processing with predictable timing behavior.
     actor_builder.with_name(NAME_WORKER)
-        .build(move |context| { actor::worker::run(context, heartbeat_rx.clone(), generator_rx.clone(), worker_tx.clone()) }
+        .build(move |actor| { actor::worker::run(actor, heartbeat_rx.clone(), generator_rx.clone(), worker_tx.clone()) }
                , SoloAct);
 
     // Terminal actors focus on external system integration and side effects.
     // Loggers typically have no outgoing channels but provide essential
     // observability and debugging capabilities for system operation.
     actor_builder.with_name(NAME_LOGGER)
-        .build(move |context| { actor::logger::run(context, worker_rx.clone()) }
+        .build(move |actor| { actor::logger::run(actor, worker_rx.clone()) }
                , SoloAct);
 }
 

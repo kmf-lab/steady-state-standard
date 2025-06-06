@@ -10,25 +10,25 @@ pub(crate) struct HeartbeatState {
 /// Entry point demonstrating command-line argument integration.
 /// Heartbeat actors commonly need runtime configuration for timing parameters,
 /// deployment flexibility, and operational tuning.
-pub async fn run(context: SteadyContext, heartbeat_tx: SteadyTx<u64>, state: SteadyState<HeartbeatState>) -> Result<(),Box<dyn Error>> {
-    let cmd = context.into_monitor([], [&heartbeat_tx]);
-    if cmd.use_internal_behavior {
-        internal_behavior(cmd, heartbeat_tx, state).await
+pub async fn run(actor: SteadyActorShadow, heartbeat_tx: SteadyTx<u64>, state: SteadyState<HeartbeatState>) -> Result<(),Box<dyn Error>> {
+    let actor = actor.into_spotlight([], [&heartbeat_tx]);
+    if actor.use_internal_behavior {
+        internal_behavior(actor, heartbeat_tx, state).await
     } else {
-        cmd.simulated_behavior(vec!(&heartbeat_tx)).await
+        actor.simulated_behavior(vec!(&heartbeat_tx)).await
     }
 }
 
 /// Periodic signal generation with coordinated shutdown capabilities.
 /// This pattern enables time-based coordination across multiple actors
 /// while maintaining precise timing control and graceful termination.
-async fn internal_behavior<C: SteadyCommander>(mut cmd: C
+async fn internal_behavior<A: SteadyActor>(mut actor: A
                                                , heartbeat_tx: SteadyTx<u64>
                                                , state: SteadyState<HeartbeatState> ) -> Result<(),Box<dyn Error>> {
     // Runtime argument access allows dynamic behavior configuration.
     // This enables the same actor code to work across different deployment scenarios
     // without recompilation or environment-specific builds.
-    let args = cmd.args::<crate::MainArg>().expect("unable to downcast");
+    let args = actor.args::<crate::MainArg>().expect("unable to downcast");
     let rate = Duration::from_millis(args.rate_ms);
     let beats = args.beats;
 
@@ -36,21 +36,21 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C
     let mut heartbeat_tx = heartbeat_tx.lock().await;
 
     // Shutdown coordination with proper channel cleanup signaling.
-    while cmd.is_running(|| heartbeat_tx.mark_closed()) {
+    while actor.is_running(|| heartbeat_tx.mark_closed()) {
         // Synchronized waiting demonstrates multi-condition coordination.
         // await_for_all! ensures both timing requirements and channel capacity
         // are satisfied before proceeding, preventing timing drift and overflow.
-        await_for_all!(cmd.wait_periodic(rate),
-                       cmd.wait_vacant(&mut heartbeat_tx, 1));
+        await_for_all!(actor.wait_periodic(rate),
+                       actor.wait_vacant(&mut heartbeat_tx, 1));
 
-        let _ = cmd.try_send(&mut heartbeat_tx, state.count);
+        let _ = actor.try_send(&mut heartbeat_tx, state.count);
 
         state.count += 1;
         // Self-terminating behavior allows actors to control application lifecycle.
         // This pattern is useful for batch jobs, scheduled tasks, or demo applications
         // that need to terminate after completing their work.
         if beats == state.count {
-            cmd.request_shutdown().await;
+            actor.request_shutdown().await;
         }
     }
     Ok(())

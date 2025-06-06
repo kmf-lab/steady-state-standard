@@ -10,19 +10,19 @@ pub(crate) struct GeneratorState {
 /// Public entry point that demonstrates dual-mode operation pattern.
 /// This allows the same actor to run in production mode (internal_behavior)
 /// or testing mode (simulated_behavior) based on the execution context.
-pub async fn run(context: SteadyContext, generated_tx: SteadyTx<u64>, state: SteadyState<GeneratorState>) -> Result<(),Box<dyn Error>> {
-    let cmd = context.into_monitor([], [&generated_tx]);
-    if cmd.use_internal_behavior {
-        internal_behavior(cmd, generated_tx, state).await
+pub async fn run(actor: SteadyActorShadow, generated_tx: SteadyTx<u64>, state: SteadyState<GeneratorState>) -> Result<(),Box<dyn Error>> {
+    let actor = actor.into_spotlight([], [&generated_tx]);
+    if actor.use_internal_behavior {
+        internal_behavior(actor, generated_tx, state).await
     } else {
-        cmd.simulated_behavior(vec!(&generated_tx)).await
+        actor.simulated_behavior(vec!(&generated_tx)).await
     }
 }
 
 /// Internal behavior demonstrates continuous data production with backpressure handling.
 /// This pattern is common for data sources that need to produce at maximum safe rate
 /// while respecting downstream capacity constraints.
-async fn internal_behavior<C: SteadyCommander>(mut cmd: C, generated: SteadyTx<u64>, state: SteadyState<GeneratorState> ) -> Result<(),Box<dyn Error>> {
+async fn internal_behavior<A: SteadyActor>(mut actor: A, generated: SteadyTx<u64>, state: SteadyState<GeneratorState> ) -> Result<(),Box<dyn Error>> {
 
     // State locking provides thread-safe access with automatic initialization.
     // The closure runs only if no state exists, ensuring consistent startup behavior.
@@ -31,11 +31,11 @@ async fn internal_behavior<C: SteadyCommander>(mut cmd: C, generated: SteadyTx<u
 
     // Shutdown coordination: mark_closed() signals downstream actors that no more data will come.
     // This enables clean pipeline termination without dropping messages in transit.
-    while cmd.is_running(|| generated.mark_closed()) {
+    while actor.is_running(|| generated.mark_closed()) {
         // SendSaturation::AwaitForRoom provides automatic backpressure management.
         // The actor will pause here if the receiving channel is full, preventing memory exhaustion
         // while maintaining data ordering and system stability.
-        match cmd.send_async(&mut generated, state.value, SendSaturation::AwaitForRoom).await {
+        match actor.send_async(&mut generated, state.value, SendSaturation::AwaitForRoom).await {
             SendOutcome::Success => state.value += 1,
             SendOutcome::Blocked(_value) => {} // Graceful handling of shutdown scenarios
         };
