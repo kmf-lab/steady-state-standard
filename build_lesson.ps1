@@ -46,7 +46,7 @@ if (Test-Path $readmePath) {
 }
 
 # Add the Lesson 00: Minimum section
-Write-Output "# Lesson 00: Minimum" | Add-Content -Path $outputFile
+Write-Output "# Lesson 01: Standard" | Add-Content -Path $outputFile
 Write-Output "" | Add-Content -Path $outputFile
 Write-Output "## Project Structure" | Add-Content -Path $outputFile
 Write-Output "" | Add-Content -Path $outputFile
