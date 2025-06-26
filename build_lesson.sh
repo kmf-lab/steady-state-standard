@@ -8,32 +8,38 @@ output_file="lesson-01-standard.md"
 get_directory_tree() {
     local path=$1
     local prefix=$2
-    # Get items excluding 'target' and hidden directories, sorted for consistency
-    local items
-    mapfile -t items < <(find "$path" -maxdepth 1 -not -path "$path" \
-        -not -name 'target' -not -name '.*' -not -type l | sort)
+    local stack=("$path")
+    local visited=()
 
-    local count=${#items[@]}
-    for ((i=0; i<count; i++)); do
-        local item=${items[i]}
-        local base=$(basename "$item")
-        local is_last=$((i == count - 1))
-        local item_prefix
-        local new_prefix
+    while [[ ${#stack[@]} -gt 0 ]]; do
+        local current=${stack[-1]}
+        local dirs=()
+        unset "stack[-1]"
 
-        if [[ $is_last -eq 1 ]]; then
-            item_prefix='\-- '
-            new_prefix="$prefix    "
-        else
-            item_prefix='+-- '
-            new_prefix="$prefix|   "
-        fi
+        # Use find with -print0 and process with xargs to handle null bytes correctly
+        local files=($(find "$current" -mindepth 1 -maxdepth 1 \
+            -not -name 'target' -not -name '.*' -not -type l -print0 | xargs -0))
 
-        echo "$prefix$item_prefix$base"
+        for ((i=0; i<${#files[@]}; i++)); do
+            local file=${files[$i]}
+            local base=$(basename "$file")
+            local is_dir=$(test -d "$file" && echo true || echo false)
+            local is_last=$((${#files[@]} - 1 == $i))
 
-        if [[ -d "$item" ]]; then
-            get_directory_tree "$item" "$new_prefix"
-        fi
+            if [[ $is_last == true ]]; then
+                item_prefix='\-- '
+                new_prefix="$prefix    "
+            else
+                item_prefix='+-- '
+                new_prefix="$prefix|   "
+            fi
+
+            echo "$prefix$item_prefix$base"
+
+            if [[ $is_dir == true ]]; then
+                stack+=("$file")
+            fi
+        done
     done
 }
 
