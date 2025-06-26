@@ -23,7 +23,7 @@ It covers:
 - Real-time metrics, CPU usage, and system throughput
 - Clean and coordinated shutdown logic
 - Configurable alerting and dashboard integration
-- Dual-mode testing (unit + pipeline)
+- Dual-mode testing (unit + graph)
 
 **Built on**: The foundational concepts introduced in the minimal example—safe concurrency, isolated actors, and shutdown orchestration.
 
@@ -59,14 +59,14 @@ This modular approach simplifies debugging, upgrades, and testing—each actor i
 
 ### Persistent Actor State
 
-Actors maintain internal state across restarts. If an actor panics or crashes, its last known state is automatically restored using the `SteadyState<T>` wrapper.
+Actors maintain internal state across failures. If an actor panics or crashes, its last known state is automatically restored using the `SteadyState<T>` wrapper.
 
 Example use cases:
 - Counters
 - Retry tracking
 - Long-lived processing state
 
-This eliminates the need for external storage just to recover progress.
+This eliminates the need for external storage just to recover progress.  This is done in memory per actor while the application is running..
 
 ---
 
@@ -98,8 +98,8 @@ This clean, cooperative termination avoids data loss and partial computation.
 ### Backpressure Management
 
 Actors use backpressure-aware methods like:
-- `cmd.wait_vacant()` – wait until output channel has room
-- `cmd.send_async(..., SendSaturation::AwaitForRoom)` – throttle producers
+- `actor.wait_vacant()` – wait until output channel has room
+- `actor.send_async(..., SendSaturation::AwaitForRoom)` – throttle producers
 
 This prevents:
 - Channel overflow
@@ -107,6 +107,10 @@ This prevents:
 - Queue delays
 
 and helps maintain predictable latency under load.
+
+Review the macros await_for_all!() and await_for_any!() and their related macros.
+Using them at the top of the is_running loop is the most common and readable approach to backpressure management.
+With that we simply await for both new work and room to write it before we do anything.
 
 ---
 
@@ -125,7 +129,8 @@ This includes:
 
 These help answer questions like:
 - Which actor is overloaded?
-- Are any channels full?
+- Are any channels full? 
+- What might the latency be?
 - Is processing falling behind?
 
 ---
@@ -138,20 +143,18 @@ These help answer questions like:
 - **logger.rs** – Passive consumer of completed results
 - **main.rs** – Initializes actors, wires channels, starts system
 
-Channel usage is defined with configurable triggers (p60, p90 fill alerting), and actor threading uses isolated per-thread execution for performance and safety.
-
 ---
 
 ## 🛠 Notable Features Introduced
 
-| Feature                     | Description                                                                 |
-|----------------------------|-----------------------------------------------------------------------------|
-| `SteadyState<T>`           | Actor-local state persisted across restarts                                 |
-| `await_for_all!()`         | Wait for multiple conditions concurrently                                   |
-| `cmd.send_async(...).await`| Throttle messages based on downstream availability                          |
-| `cmd.is_running()`         | Coordinated shutdown condition checking                                     |
-| `cmd.request_shutdown()`   | Triggers system-wide cooperative shutdown                                   |
-| `Threading::Spawn`         | One thread per actor – safe and simple to reason about                      |
+| Feature                       | Description                                                                 |
+|-------------------------------|-----------------------------------------------------------------------------|
+| `SteadyState<T>`              | Actor-local state persisted across restarts                                 |
+| `await_for_all!()`            | Wait for multiple conditions concurrently                                   |
+| `actor.send_async(...).await` | Throttle messages based on downstream availability                          |
+| `actor.is_running()`          | Coordinated shutdown condition checking                                     |
+| `actor.request_shutdown()`    | Triggers system-wide cooperative shutdown                                   |
+| `ScheduleAs::SoloAct`           | One thread per actor – safe and simple to reason about                      |
 
 ---
 

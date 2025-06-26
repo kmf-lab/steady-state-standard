@@ -1,6 +1,6 @@
 use steady_state::*;
 
-// over designed this enum is. much to learn here we have.
+// Over designed this enum is. much to learn here we have.
 // Memory-efficient message design using discriminant encoding for compact representation.
 // The repr(u64) attribute enables the entire enum to fit within 8 bytes, improving
 // cache performance and reducing memory allocation overhead in high-throughput scenarios.
@@ -13,9 +13,9 @@ pub(crate) enum FizzBuzzMessage {
     Buzz = 5,              // Discriminant is 5 - could have been any valid Buzz
     Value(u64),            // Store u64 directly, use the fact that FizzBuzz/Fizz/Buzz only occupy small values
 }
+
 impl FizzBuzzMessage {
-    /// Business logic encapsulation within message constructors promotes consistency
-    /// and keeps domain-specific rules close to the data structures they operate on.
+    /// Business logic encapsulation to solve FizzBuzz
     pub fn new(value: u64) -> Self {
         match (value % 3, value % 5) {
             (0, 0) => FizzBuzzMessage::FizzBuzz,    // Multiple of 15
@@ -45,6 +45,7 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
                                                , generator: SteadyRx<u64>
                                                , logger: SteadyTx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
 
+    // Very standard pattern to lock the actor's resources for exclusive use.
     let mut heartbeat = heartbeat.lock().await;
     let mut generator = generator.lock().await;
     let mut logger = logger.lock().await;
@@ -52,7 +53,7 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
     // When a shutdown is requested, is_running will call the closure to determine if this actor will accept or veto the shutdown.
     // If the closure returns true then the shutdown was accepted, and we will exit the while loop.  It is typical to use
     // short circuit boolean logic to confirm all the required conditions for our actor to shut down. In order to help
-    // debug 'why' a actor might refuse to shut down we put 'eyes' the i! macro around each boolean.  The i! macros will simply
+    // debug 'why' a actor might refuse to shutdown we put 'eyes' the i! macro around each boolean.  The i! macros will simply
     // pass thru the boolean value but also capture and reports which one returned false in the event of an unclean shutdown.
 
     while actor.is_running(|| i!(heartbeat.is_closed_and_empty()) && i!(generator.is_closed_and_empty()) && i!(logger.mark_closed())) {
@@ -63,10 +64,10 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
         //    ie        await_for_any!(wait_for_all!(...), wait_for_all!(...))
         //
         // await_for_all!:  calls await on every future passed in and then continue after they are all complete.
-        // await_for_any!:  calls await on every future passed in and then continue after one of them has completed.
+        // await_for_any!:  calls await simultaneously on every future passed in and then continue after one of them has completed.
         // await_for_all_or_proceed_upon!: same as await_for_all except that if the first item is done, it immediately continues.
         //
-        // reminder: Ihis is all single threaded, as each future makes progress it does so while the other futures await.
+        // reminder: This is all single threaded, as each future makes progress it does so while the other futures await.
         //           In general, all the futures are probably spending most of their time awaiting something external
         //
         // The await_for macros all return a boolean 'clean' which is true if all the conditions were met, this will be
@@ -83,6 +84,7 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
             let mut items = actor.avail_units(&mut generator).min(actor.vacant_units(&mut logger));           
             while items>0 {                
                 let item = actor.try_take(&mut generator).expect("internal error");
+                // could check is_send or use .expect because we know there is room
                 actor.try_send(&mut logger, FizzBuzzMessage::new(item)).expect("internal error");
                 items -= 1;
             }
@@ -101,11 +103,13 @@ pub(crate) mod worker_tests {
 
     #[test]
     fn test_worker() -> Result<(), Box<dyn Error>> {
+        // Always create the GraphBuilder::for_testing()
         let mut graph = GraphBuilder::for_testing().build(());
         let (generate_tx, generate_rx) = graph.channel_builder().build();
         let (heartbeat_tx, heartbeat_rx) = graph.channel_builder().build();
         let (logger_tx, logger_rx) = graph.channel_builder().build::<FizzBuzzMessage>();
 
+        // Always use internal_behavior for testing
         graph.actor_builder().with_name("UnitTest")
             .build(move |context| internal_behavior(context
                                                     , heartbeat_rx.clone()
@@ -118,7 +122,8 @@ pub(crate) mod worker_tests {
         generate_tx.testing_send_all(vec![0,1,2,3,4,5], true);
         heartbeat_tx.testing_send_all(vec![0], true);
         graph.start();
-        // because shutdown waits for closed and empty, it does not happen until our test data is digested. 
+        // because clean shutdown waits for closed and empty
+        // , it does not happen until our test data is digested. 
         graph.request_shutdown();
         graph.block_until_stopped(Duration::from_secs(1))?;
         assert_steady_rx_eq_take!(&logger_rx, [FizzBuzzMessage::FizzBuzz

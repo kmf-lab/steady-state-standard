@@ -1,8 +1,7 @@
 use clap::Parser;
 
 /// Command-line argument structure demonstrating runtime configuration integration.
-/// This pattern enables deployment flexibility without code changes, supporting
-/// different operational requirements across development, testing, and production environments.
+/// This is normal 'clap' and for more details you should review their documentation.
 #[derive(Parser, Debug, PartialEq, Clone)]
 pub(crate) struct MainArg {
     /// Timing control parameter for adjusting system responsiveness.

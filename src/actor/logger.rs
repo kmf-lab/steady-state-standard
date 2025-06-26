@@ -8,7 +8,7 @@ pub async fn run(actor: SteadyActorShadow, fizz_buzz_rx: SteadyRx<FizzBuzzMessag
     let actor = actor.into_spotlight([&fizz_buzz_rx], []);
     if actor.use_internal_behavior {
         internal_behavior(actor, fizz_buzz_rx).await
-    } else {
+    } else { //as with other edge actors, we use simulated behavior to enable testing from main
         actor.simulated_behavior(vec!(&fizz_buzz_rx)).await
     }
 }
@@ -16,19 +16,26 @@ pub async fn run(actor: SteadyActorShadow, fizz_buzz_rx: SteadyRx<FizzBuzzMessag
 /// Event-driven processing pattern for immediate message handling.
 /// This approach ensures minimal latency between message arrival and processing,
 /// making it ideal for logging, monitoring, and real-time notification systems.
-async fn internal_behavior<A: SteadyActor>(mut actor: A, rx: SteadyRx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
+async fn internal_behavior<A: SteadyActor>(mut actor: A
+                                           , rx: SteadyRx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
     let mut rx = rx.lock().await;
     // Termination condition waits for channel closure and message drainage.
     // This ensures all messages are processed before the actor terminates,
     // preventing data loss during shutdown sequences.
     while actor.is_running(|| rx.is_closed_and_empty()) {
+        // This is important as it drops CPU usage to zero if we have no work to do.
         await_for_all!(actor.wait_avail(&mut rx, 1));
-        if let Some(msg) = actor.try_take(&mut rx) {
+        
+        // This consumes all the messages in the channel until it is empty
+        // Warning: the producer is adding messages at the same time;
+        // so we may be here longer than we want. NOTE: is_running() checks
+        // for shutdown and relays collected telemetry.
+        while let Some(msg) = actor.try_take(&mut rx) {
             // Message processing with structured logging integration.
             // The framework automatically handles log formatting, threading,
-            // and output routing based on configuration.
+            // and output routing based on configuration. 
             info!("Msg {:?}", msg );
-        }
+        }        
     }
     Ok(())
 }
