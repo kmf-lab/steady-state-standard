@@ -8,29 +8,30 @@ output_file="lesson-01-standard.md"
 get_directory_tree() {
     local path=$1
     local prefix=$2
-    local items=()
-    while IFS= read -r -d '' item; do
-        items+=("$item")
-    done < <(find "$path" -mindepth 1 -maxdepth 1 ! -name 'target' ! -name '.*' -print0)
+    # Get items excluding 'target' and hidden directories, sorted for consistency
+    local items
+    mapfile -t items < <(find "$path" -maxdepth 1 -not -path "$path" \
+        -not -name 'target' -not -name '.*' -not -type l | sort)
+
     local count=${#items[@]}
     for ((i=0; i<count; i++)); do
-        local item=${items[$i]}
+        local item=${items[i]}
         local base=$(basename "$item")
-        local last=$((i == count - 1))
+        local is_last=$((i == count - 1))
         local item_prefix
-        if [ $last -eq 1 ]; then
+        local new_prefix
+
+        if [[ $is_last -eq 1 ]]; then
             item_prefix='\-- '
+            new_prefix="$prefix    "
         else
             item_prefix='+-- '
+            new_prefix="$prefix|   "
         fi
+
         echo "$prefix$item_prefix$base"
-        if [ -d "$item" ]; then
-            local new_prefix
-            if [ $last -eq 1 ]; then
-                new_prefix="$prefix    "
-            else
-                new_prefix="$prefix|   "
-            fi
+
+        if [[ -d "$item" ]]; then
             get_directory_tree "$item" "$new_prefix"
         fi
     done
@@ -60,10 +61,11 @@ fi
 } >> "$output_file"
 
 # Process each Cargo.toml and associated .rs and .toml files
-cargo_tomls=$(find . -type f -name Cargo.toml)
+cargo_tomls=$(find . -type f -name Cargo.toml | sort)
 for toml in $cargo_tomls; do
     project_dir=$(dirname "$toml")
-    files=$(find "$project_dir" -type f \( -name '*.rs' -o -name '*.toml' \) ! -path '*/target/*' ! -path '*/.*/*' | sort)
+    files=$(find "$project_dir" -type f \( -name '*.rs' -o -name '*.toml' \) \
+        -not -path '*/target/*' -not -path '*/.*/*' | sort)
     for file in $files; do
         relative_path=$(realpath --relative-to=. "$file")
         ext="${file##*.}"
