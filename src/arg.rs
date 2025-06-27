@@ -20,7 +20,7 @@ pub(crate) struct MainArg {
 /// Default implementation provides fallback values for testing and API usage.
 /// This ensures consistent behavior when command-line parsing isn't available
 /// or when actors are used programmatically within larger applications.
-impl Default for MainArg {
+impl Default for MainArg { //#!#//
     fn default() -> Self {
         MainArg {
             rate_ms: 1000,

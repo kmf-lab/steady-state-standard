@@ -34,7 +34,7 @@ pub async fn run(actor: SteadyActorShadow
                  , generator: SteadyRx<u64>
                  , logger: SteadyTx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
     //this is NOT on the edge of the graph so we do not want to simulate it as it will be tested by its simulated neighbors
-    internal_behavior(actor.into_spotlight([&heartbeat, &generator], [&logger]), heartbeat, generator, logger).await
+    internal_behavior(actor.into_spotlight([&heartbeat, &generator], [&logger]), heartbeat, generator, logger).await //#!#//
 }
 
 /// Batch processing pattern triggered by external timing signals enables efficient
@@ -45,7 +45,7 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
                                                , generator: SteadyRx<u64>
                                                , logger: SteadyTx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
 
-    // Very standard pattern to lock the actor's resources for exclusive use.
+    // Very standard pattern to lock the actor's resources for exclusive use.  //#!#//
     let mut heartbeat = heartbeat.lock().await;
     let mut generator = generator.lock().await;
     let mut logger = logger.lock().await;
@@ -56,7 +56,7 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
     // debug 'why' a actor might refuse to shutdown we put 'eyes' the i! macro around each boolean.  The i! macros will simply
     // pass thru the boolean value but also capture and reports which one returned false in the event of an unclean shutdown.
 
-    while actor.is_running(|| i!(heartbeat.is_closed_and_empty()) && i!(generator.is_closed_and_empty()) && i!(logger.mark_closed())) {
+    while actor.is_running(|| i!(heartbeat.is_closed_and_empty()) && i!(generator.is_closed_and_empty()) && i!(logger.mark_closed())) { //#!#//
 
         // There are many ways to design an actor, but this is the standard approach to use as the default.
         // Put all the required needs into a single await_for macro call, we have 3 different macros to choose from,
@@ -73,13 +73,13 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
         // The await_for macros all return a boolean 'clean' which is true if all the conditions were met, this will be
         // false if it had to exit early due to a shutdown in progress.
 
-        let _clean = await_for_all!(actor.wait_avail(&mut heartbeat,1)
+        let clean = await_for_all!(actor.wait_avail(&mut heartbeat,1)  //#!#//
                                   , actor.wait_avail(&mut generator,1)
                                   , actor.wait_vacant(&mut logger, 1)
         );
 
         //if we have a heartbeat or a stop request then we need to process some work
-        if actor.try_take(&mut heartbeat).is_some() || actor.is_liveliness_stop_requested() {
+        if actor.try_take(&mut heartbeat).is_some() || !clean { //#!#//
             //check for how much work and how much room we have before we begin
             let mut items = actor.avail_units(&mut generator).min(actor.vacant_units(&mut logger));           
             while items>0 {                
@@ -117,7 +117,6 @@ pub(crate) mod worker_tests {
                                                     , logger_tx.clone())
                    , SoloAct
             );
-
         
         generate_tx.testing_send_all(vec![0,1,2,3,4,5], true);
         heartbeat_tx.testing_send_all(vec![0], true);

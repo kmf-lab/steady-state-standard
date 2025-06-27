@@ -45,7 +45,9 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
                        actor.wait_vacant(&mut heartbeat_tx, 1));
 
         // since we used actor.wait_vacant() above we know this try will never fail
-        assert!(actor.try_send(&mut heartbeat_tx, state.count).is_sent());
+        assert!(actor.try_send(&mut heartbeat_tx, state.count).is_sent(),"unable to send");//#!#//
+        //OR:
+        //actor.try_send(&mut heartbeat_tx, state.count).expect("unable to send");
 
         state.count += 1;
         // Self-terminating behavior allows actors to control the application lifecycle.

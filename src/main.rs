@@ -5,7 +5,7 @@ mod arg;
 /// Actor module organization demonstrates scalable code structure.
 /// This pattern enables clean separation of concerns while maintaining
 /// visibility and reusability across different deployment configurations.
-pub(crate) mod actor {
+pub(crate) mod actor {//#!#//
     pub(crate) mod heartbeat;
     pub(crate) mod generator;
     pub(crate) mod worker;
@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     init_logging(LogLevel::Info)?;
     let mut graph = GraphBuilder::default()
         // The default and minimum telemetry frame rate is 40ms. It works well for most cases.
-        //.with_telemtry_production_rate_ms(200) //You can slow it down with this
+        //.with_telemtry_production_rate_ms(200) //You can slow it down with this  //#!#//
         .build(cli_args);
 
     build_graph(&mut graph);
@@ -56,7 +56,7 @@ fn build_graph(graph: &mut Graph) {
         // Threshold-based alerting enables proactive monitoring of system health.
         // Red alerts indicate critical congestion requiring immediate attention,
         // while orange alerts provide early warning of developing bottlenecks.
-        .with_filled_trigger(Trigger::AvgAbove(Filled::p90()), AlertColor::Red)
+        .with_filled_trigger(Trigger::AvgAbove(Filled::p90()), AlertColor::Red) //#!#//
         .with_filled_trigger(Trigger::AvgAbove(Filled::p60()), AlertColor::Orange)
         // Percentile monitoring provides statistical insight into channel utilization.
         .with_filled_percentile(Percentile::p80());
@@ -72,10 +72,10 @@ fn build_graph(graph: &mut Graph) {
     let actor_builder = graph.actor_builder()
         // Load distribution metrics enable capacity planning and bottleneck identification.
         // This shows which actors consume the most resources relative to graph capacity.
-        .with_load_avg()
+        .with_load_avg()//#!#//
         // CPU utilization tracking provides absolute performance measurement.
         // Values are normalized to 1024 units per core for consistent cross-platform metrics.
-        .with_mcpu_avg();
+        .with_mcpu_avg();//#!#//
 
     // State management demonstrates persistent actor behavior across restarts.
     // Each actor maintains independent state that survives crashes, enabling
@@ -83,7 +83,7 @@ fn build_graph(graph: &mut Graph) {
     let state = new_state();
     actor_builder.with_name(NAME_HEARTBEAT)
         // It is a very normal pattern to see every channel and state cloned here. This enables us
-        // to keep an Arc here for recovery should this actor panic.
+        // to keep an Arc here for recovery should this actor panic.  //#!#//
         .build(move |actor| { actor::heartbeat::run(actor, heartbeat_tx.clone(), state.clone()) }
                , SoloAct); 
 
@@ -121,7 +121,8 @@ pub(crate) mod main_tests {
     #[test]
     fn graph_test() -> Result<(), Box<dyn Error>> {
 
-        let mut graph = GraphBuilder::for_testing()
+        //Must build graph for testing or stage_manager will not be available.
+        let mut graph = GraphBuilder::for_testing() //#!#//
                          .build(MainArg::default());
 
         // We call the same production code to build the graph here for testing
@@ -131,14 +132,14 @@ pub(crate) mod main_tests {
         // Stage management provides orchestrated testing of multi-actor scenarios.
         // This enables precise control over actor behavior and verification of
         // complex system interactions without manual coordination complexity.
-        let stage_manager = graph.stage_manager();
+        let stage_manager = graph.stage_manager(); //#!#//
         // This makes use of the "simulated" actors to mock what they send or expect to receive.
         stage_manager.actor_perform(NAME_GENERATOR, StageDirection::Echo(15u64))?;
         stage_manager.actor_perform(NAME_HEARTBEAT, StageDirection::Echo(100u64))?;
         stage_manager.actor_perform(NAME_LOGGER,    StageWaitFor::Message(FizzBuzzMessage::FizzBuzz
                                                                           , Duration::from_secs(2)))?;
         // Must stop stage manager which has been communicating to our simulated actors.
-        stage_manager.final_bow();
+        stage_manager.final_bow(); //#!#//
 
         graph.request_shutdown();
 

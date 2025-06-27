@@ -24,13 +24,13 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
     // preventing data loss during shutdown sequences.
     while actor.is_running(|| rx.is_closed_and_empty()) {
         // This is important as it drops CPU usage to zero if we have no work to do.
-        await_for_all!(actor.wait_avail(&mut rx, 1));
+        await_for_all!(actor.wait_avail(&mut rx, 1)); //#!#//
         
         // This consumes all the messages in the channel until it is empty
         // Warning: the producer is adding messages at the same time;
         // so we may be here longer than we want. NOTE: is_running() checks
         // for shutdown and relays collected telemetry.
-        while let Some(msg) = actor.try_take(&mut rx) {
+        while let Some(msg) = actor.try_take(&mut rx) { //#!#//
             // Message processing with structured logging integration.
             // The framework automatically handles log formatting, threading,
             // and output routing based on configuration. 
@@ -46,7 +46,9 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
 #[test]
 fn test_logger() -> Result<(), Box<dyn std::error::Error>> {
     use steady_logger::*;
-    let _guard = start_log_capture();
+    
+    //in this case, there is no outgoing channel, so we must test against the logs
+    let _guard = start_log_capture();  //#!#//
 
     let mut graph = GraphBuilder::for_testing().build(());
     let (fizz_buzz_tx, fizz_buzz_rx) = graph.channel_builder().build();
@@ -65,7 +67,7 @@ fn test_logger() -> Result<(), Box<dyn std::error::Error>> {
     graph.block_until_stopped(Duration::from_secs(10000))?;
     // Log assertion macros enable verification of logging behavior
     // across multi-threaded execution environments.
-    assert_in_logs!(["Msg Fizz"]);
+    assert_in_logs!(["Msg Fizz"]); //#!#//
 
     Ok(())
 }

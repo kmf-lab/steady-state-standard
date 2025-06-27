@@ -277,7 +277,7 @@ This example is the second step in the Steady State learning journey:
 5. **steady-state-distributed**: Cluster-wide graphs and cross-node actor systems
 
 Each example builds in complexity and capability—choose the right pattern based on your current project needs.
-
+When reviewing the source code, look for //#!#// which demonstrate key ideas you need to know.
 ---
 
 _The Steady State Standard project is your blueprint for building reliable, observable, and maintainable concurrent Rust systems using the actor model._

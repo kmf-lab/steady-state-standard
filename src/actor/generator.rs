@@ -14,8 +14,8 @@ pub(crate) struct GeneratorState {
 pub async fn run(actor: SteadyActorShadow
                  , generated_tx: SteadyTx<u64>
                  , state: SteadyState<GeneratorState>) -> Result<(),Box<dyn Error>> {
-    let actor = actor.into_spotlight([], [&generated_tx]);
-    if actor.use_internal_behavior { //always true unless testing
+    let actor = actor.into_spotlight([], [&generated_tx]); //#!#//
+    if actor.use_internal_behavior { //always true unless testing  //#!#//
         internal_behavior(actor, generated_tx, state).await
     } else {
         //Here we listen to test messages from main and relay them as if they were 
@@ -33,19 +33,19 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
 
     // State locking provides thread-safe access with automatic initialization.
     // The closure runs only if no state exists, ensuring consistent startup behavior.
-    let mut state = state.lock(|| GeneratorState {value: 0}).await;
+    let mut state = state.lock(|| GeneratorState {value: 0}).await; //#!#//
     // Channel is locked to this actor instance on startup. On panic/restart we will re-acquire the lock.
     let mut generated = generated.lock().await;
 
     // Shutdown coordination: mark_closed() signals downstream actors that no more data will come
     // after the current data in flight. This enables clean pipeline termination without dropping
     // messages in transit.
-    while actor.is_running(|| generated.mark_closed()) {
+    while actor.is_running(|| generated.mark_closed()) { //#!#//
         // SendSaturation::AwaitForRoom provides automatic backpressure management.
         // The actor will pause here if the receiving channel is full, preventing memory exhaustion
         // while maintaining data ordering and system stability. AwaitForRoom will return 
         // immediately if a shutdown signal is received.
-        match actor.send_async(&mut generated, state.value, SendSaturation::AwaitForRoom).await {
+        match actor.send_async(&mut generated, state.value, SendSaturation::AwaitForRoom).await { //#!#//
             SendOutcome::Success => state.value += 1,
             SendOutcome::Blocked(_value) => {} // Only happens on shutdown 
         };
@@ -64,11 +64,11 @@ pub(crate) mod generator_tests {
     #[test]
     fn test_generator() -> Result<(), Box<dyn Error>> {
         // Special GraphBuilder for testing is used here.
-        let mut graph = GraphBuilder::for_testing().build(MainArg::default());
+        let mut graph = GraphBuilder::for_testing().build(MainArg::default()); //#!#//
         let (generate_tx, generate_rx) = graph.channel_builder().build();
 
         let state = new_state();
-        graph.actor_builder()
+        graph.actor_builder()//#!#//
             .with_name("UnitTest")
             //NOTE: we call internal_behavior() directly here, not run() which is now a simulation.
             .build(move |context| internal_behavior(context, generate_tx.clone(), state.clone()), SoloAct );
@@ -82,7 +82,7 @@ pub(crate) mod generator_tests {
         graph.block_until_stopped(Duration::from_secs(1))?;
 
         // Deterministic testing: predictable message sequences.
-        assert_steady_rx_eq_take!(generate_rx,vec!(0,1));
+        assert_steady_rx_eq_take!(generate_rx,vec!(0,1));  //#!#//
         Ok(())
     }
 }
