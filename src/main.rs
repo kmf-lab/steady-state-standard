@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Blocking wait with timeout prevents infinite hangs while allowing
     // graceful shutdown completion. The timeout you set should be larger than
     // the expected cleanup duration for all actors to avoid premature termination.
-    graph.block_until_stopped(Duration::from_secs(5))
+    graph.block_until_stopped(Duration::from_secs(4))
 }
 
 /// Actor name constants enable refactoring safety and consistent identification.
@@ -65,6 +65,14 @@ fn build_graph(graph: &mut Graph) {
     let (heartbeat_tx, heartbeat_rx) = channel_builder.build();
     let (generator_tx, generator_rx) = channel_builder.build();
     let (worker_tx, worker_rx) = channel_builder.build();
+
+    // NOT needed for this demo but if we wanted to build a 'bundle' of channels which all have the
+    //     same type and capacity it can be done this way.  to use individual channels just use btx[n]
+    //     since this creates two vecs holding tx and rx endpoints.  This is most helpful when you have
+    //     a single actor which consumes or distributes to or from many others. You can pass in the
+    //     full bundle of channels with a simple   btx.clone()
+    // let (btx,brx) = channel_builder.build_channel_bundle::<_, 3>();  //#!#//
+
 
     // Actor builder configuration provides consistent performance monitoring.
     // Load averaging shows relative resource consumption across actors,

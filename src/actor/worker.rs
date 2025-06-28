@@ -55,8 +55,13 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
     // short circuit boolean logic to confirm all the required conditions for our actor to shut down. In order to help
     // debug 'why' a actor might refuse to shutdown we put 'eyes' the i! macro around each boolean.  The i! macros will simply
     // pass thru the boolean value but also capture and reports which one returned false in the event of an unclean shutdown.
+    // NOTE: || starts the closure and is not an OR expression.
 
-    while actor.is_running(|| i!(heartbeat.is_closed_and_empty()) && i!(generator.is_closed_and_empty()) && i!(logger.mark_closed())) { //#!#//
+    while actor.is_running(                         //to ignore   || true
+                           || i!(heartbeat.is_closed_and_empty())
+                           && i!(generator.is_closed_and_empty() /* macro ignores comment */ )
+                           && i!(logger.mark_closed()) // must be last
+                         ) {                 //#!#//
 
         // There are many ways to design an actor, but this is the standard approach to use as the default.
         // Put all the required needs into a single await_for macro call, we have 3 different macros to choose from,
