@@ -93,7 +93,7 @@ fn build_graph(graph: &mut Graph) {
         // It is a very normal pattern to see every channel and state cloned here. This enables us
         // to keep an Arc here for recovery should this actor panic.  //#!#//
         .build(move |actor| actor::heartbeat::run(actor, heartbeat_tx.clone(), state.clone()) 
-               , SoloAct); 
+               , SoloAct);   //  note .clone() on lazy is doing a late init of our channel //#!#//
 
     // NOTE: that no type information is needed for state.
     let state = new_state();
