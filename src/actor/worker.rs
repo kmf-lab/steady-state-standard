@@ -30,25 +30,25 @@ impl FizzBuzzMessage {
 /// Worker actors commonly integrate multiple data streams with different timing
 /// characteristics while maintaining processing order and system responsiveness.
 pub async fn run(actor: SteadyActorShadow
-                 , heartbeat: SteadyRx<u64> //the type can be any struct or primitive or enum...
-                 , generator: SteadyRx<u64>
-                 , logger: SteadyTx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
+                 , heartbeat_rx: SteadyRx<u64> //the type can be any struct or primitive or enum...
+                 , generator_rx: SteadyRx<u64>
+                 , logger_tx: SteadyTx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
     //this is NOT on the edge of the graph so we do not want to simulate it as it will be tested by its simulated neighbors
-    internal_behavior(actor.into_spotlight([&heartbeat, &generator], [&logger]), heartbeat, generator, logger).await //#!#//
+    internal_behavior(actor.into_spotlight([&heartbeat_rx, &generator_rx], [&logger_tx]), heartbeat_rx, generator_rx, logger_tx).await //#!#//
 }
 
 /// Batch processing pattern triggered by external timing signals enables efficient
 /// bulk operations while maintaining responsive timing control and proper resource
 /// utilization across variable load conditions.
 async fn internal_behavior<A: SteadyActor>(mut actor: A
-                                               , heartbeat: SteadyRx<u64> //the type can be any struct or primitive or enum...
-                                               , generator: SteadyRx<u64>
-                                               , logger: SteadyTx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
+                                           , heartbeat_rx: SteadyRx<u64> //the type can be any struct or primitive or enum...
+                                           , generator_rx: SteadyRx<u64>
+                                           , logger_tx: SteadyTx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
 
     // Very standard pattern to lock the actor's resources for exclusive use.  //#!#//
-    let mut heartbeat = heartbeat.lock().await;
-    let mut generator = generator.lock().await;
-    let mut logger = logger.lock().await;
+    let mut heartbeat_rx = heartbeat_rx.lock().await;
+    let mut generator_rx = generator_rx.lock().await;
+    let mut logger_tx = logger_tx.lock().await;
 
     // When a shutdown is requested, is_running will call the closure to determine if this actor will accept or veto the shutdown.
     // If the closure returns true then the shutdown was accepted, and we will exit the while loop.  It is typical to use
@@ -57,10 +57,10 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
     // pass thru the boolean value but also capture and reports which one returned false in the event of an unclean shutdown.
     // NOTE: || starts the closure and is not an OR expression.
 
-    while actor.is_running(                         //to ignore   || true
-                           || i!(heartbeat.is_closed_and_empty())
-                           && i!(generator.is_closed_and_empty() /* macro ignores comment */ )
-                           && i!(logger.mark_closed()) // must be last
+    while actor.is_running(                       
+                           || i!(heartbeat_rx.is_closed_and_empty())
+                           && i!(generator_rx.is_closed_and_empty() /* macro ignores comment */ ) // false &&
+                           && i!(logger_tx.mark_closed()) // must be last
                          ) {                 //#!#//
 
         // There are many ways to design an actor, but this is the standard approach to use as the default.
@@ -78,19 +78,19 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
         // The await_for macros all return a boolean 'clean' which is true if all the conditions were met, this will be
         // false if it had to exit early due to a shutdown in progress.
 
-        let clean = await_for_all!(actor.wait_avail(&mut heartbeat,1)  //#!#//
-                                  , actor.wait_avail(&mut generator,1)
-                                  , actor.wait_vacant(&mut logger, 1)
+        let clean = await_for_all!(actor.wait_avail(&mut heartbeat_rx,1)  //#!#//
+                                       , actor.wait_avail(&mut generator_rx,1)
+                                       , actor.wait_vacant(&mut logger_tx, 1)
         );
 
         //if we have a heartbeat or a stop request then we need to process some work
-        if actor.try_take(&mut heartbeat).is_some() || !clean { //#!#//
+        if actor.try_take(&mut heartbeat_rx).is_some() || !clean { //#!#//
             //check for how much work and how much room we have before we begin
-            let mut items = actor.avail_units(&mut generator).min(actor.vacant_units(&mut logger));           
+            let mut items = actor.avail_units(&mut generator_rx).min(actor.vacant_units(&mut logger_tx));           
             while items>0 {                
-                let item = actor.try_take(&mut generator).expect("internal error");
+                let item = actor.try_take(&mut generator_rx).expect("internal error");
                 // could check is_send or use .expect because we know there is room
-                actor.try_send(&mut logger, FizzBuzzMessage::new(item)).expect("internal error");
+                actor.try_send(&mut logger_tx, FizzBuzzMessage::new(item)).expect("internal error");
                 items -= 1;
             }
         }

@@ -28,24 +28,24 @@ pub async fn run(actor: SteadyActorShadow
 /// This pattern is common for data sources that need to produce at maximum safe rate
 /// while respecting downstream capacity constraints.
 async fn internal_behavior<A: SteadyActor>(mut actor: A
-                                           , generated: SteadyTx<u64>
+                                           , generated_tx: SteadyTx<u64>
                                            , state: SteadyState<GeneratorState> ) -> Result<(),Box<dyn Error>> {
 
     // State locking provides thread-safe access with automatic initialization.
     // The closure runs only if no state exists, ensuring consistent startup behavior.
     let mut state = state.lock(|| GeneratorState {value: 0}).await; //#!#//
     // Channel is locked to this actor instance on startup. On panic/restart we will re-acquire the lock.
-    let mut generated = generated.lock().await;
+    let mut generated_tx = generated_tx.lock().await;
 
     // Shutdown coordination: mark_closed() signals downstream actors that no more data will come
     // after the current data in flight. This enables clean pipeline termination without dropping
     // messages in transit.
-    while actor.is_running(|| generated.mark_closed()) { //#!#//
+    while actor.is_running(|| generated_tx.mark_closed()) { //#!#//
         // SendSaturation::AwaitForRoom provides automatic backpressure management.
         // The actor will pause here if the receiving channel is full, preventing memory exhaustion
         // while maintaining data ordering and system stability. AwaitForRoom will return 
         // immediately if a shutdown signal is received.
-        match actor.send_async(&mut generated, state.value, SendSaturation::AwaitForRoom).await { //#!#//
+        match actor.send_async(&mut generated_tx, state.value, SendSaturation::AwaitForRoom).await { //#!#//
             SendOutcome::Success => state.value += 1,
             SendOutcome::Blocked(_value) => {} // Only happens on shutdown 
         };
