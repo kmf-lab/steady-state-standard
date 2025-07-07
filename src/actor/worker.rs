@@ -50,6 +50,7 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
     let mut generator_rx = generator_rx.lock().await;
     let mut logger_tx = logger_tx.lock().await;
 
+  
     // When a shutdown is requested, is_running will call the closure to determine if this actor will accept or veto the shutdown.
     // If the closure returns true then the shutdown was accepted, and we will exit the while loop.  It is typical to use
     // short circuit boolean logic to confirm all the required conditions for our actor to shut down. In order to help
