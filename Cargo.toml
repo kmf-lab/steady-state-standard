@@ -5,5 +5,5 @@ edition = "2024"
 
 [dependencies]
 #steady_state     = "0.2.2"
-clap             = { version = "4.5.38", features = ["derive"] }
+clap             = { version = "4.5.40", features = ["derive"] }
 steady_state     = { path = "../steady-state-stack/core", features = ["exec_async_std", "telemetry_server_builtin"], default-features = false }
