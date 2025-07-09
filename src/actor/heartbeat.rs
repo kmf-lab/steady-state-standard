@@ -73,7 +73,8 @@ pub(crate) mod heartbeat_tests {
         let (heartbeat_tx, heartbeat_rx) = graph.channel_builder().build();
 
         // Requires state so we create one here.
-        let state = new_state();
+        let state = new_state(); //will be moved into the closure
+        let state_clone_for_testing = state.clone(); //#!#// // keep clone for testing
         graph.actor_builder()
             .with_name("UnitTest")
             .build(move |context|
@@ -88,6 +89,13 @@ pub(crate) mod heartbeat_tests {
         graph.request_shutdown();
         graph.block_until_stopped(Duration::from_secs(1))?;
         assert_steady_rx_eq_take!(&heartbeat_rx, vec!(0,1));
+
+
+        // The state of the actor can be tested after the graph is done using try_lock_sync()
+        let state = state_clone_for_testing.try_lock_sync().expect("unable to lock");//#!#//
+        assert!(state.count >= 2);
+
+
         Ok(())
     }
 }
