@@ -58,8 +58,9 @@ fn build_graph(graph: &mut Graph) {
         // while orange alerts provide early warning of developing bottlenecks.
         .with_filled_trigger(Trigger::AvgAbove(Filled::p90()), AlertColor::Red) //#!#//
         .with_filled_trigger(Trigger::AvgAbove(Filled::p60()), AlertColor::Orange)
-        // Percentile monitoring provides statistical insight into channel utilization.
-        .with_filled_percentile(Percentile::p80());
+        
+        .with_filled_max()
+        .with_filled_min();
 
     // The builder is used to build the channels. Note that we do NOT require any type information.
     let (heartbeat_tx, heartbeat_rx) = channel_builder.build();
