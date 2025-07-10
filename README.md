@@ -135,6 +135,109 @@ These help answer questions like:
 
 ---
 
+### Customizing Telemetry and Metrics
+
+#### Metric Units
+These structs define units for triggers and metrics, ensuring precise, type-safe configuration.
+
+- **`Work`**: Represents workload as a percentage (0-100%, scaled to 0-10000 internally for precision).
+    - Creation: `Work::new(value: f32) -> Option<Work>` (e.g., `Work::new(50.0)` for 50%).
+    - Predefined: `Work::p10()`, `p20()`, ..., `p100()` (e.g., `Work::p50()` for 50%).
+    - Usage: In actor load triggers (e.g., `Trigger::AvgAbove(Work::p80())`).
+    - Telemetry/Prometheus: Appears in load metrics (e.g., `avg_load` as percentage).
+
+- **`MCPU`**: Milli-CPUs (1-1024, where 1024 = 1 full core) for CPU usage.
+    - Creation: `MCPU::new(value: u16) -> Option<MCPU>` (e.g., `MCPU::new(512)` for half a core).
+    - Predefined: `MCPU::m16()`, `m64()`, `m256()`, `m512()`, `m768()`, `m1024()`.
+    - Usage: In CPU triggers (e.g., `Trigger::AvgAbove(MCPU::m512())` for >50% CPU).
+    - Telemetry/Prometheus: In CPU metrics (e.g., `avg_mCPU` in milli-units).
+
+- **`Percentile`**: Defines distribution points for metrics (0-100%).
+    - Creation: `Percentile::new(value: f64) -> Option<Percentile>` or `Percentile::custom(value)`.
+    - Predefined: `Percentile::p25()`, `p50()`, `p75()`, `p80()`, `p90()`, `p96()`, `p99()`.
+    - Usage: In builder methods like `with_mcpu_percentile(Percentile::p90())`.
+    - Telemetry/Prometheus: Adds fields like `percentile_load{p=9000}` (p=percentile*100).
+
+- **`Rate`**: Rate of events over time (e.g., messages/sec), as a rational for precision.
+    - Creation: `Rate::per_millis(units)`, `per_seconds()`, `per_minutes()`, `per_hours()`, `per_days()` (e.g., `Rate::per_seconds(100)` for 100/sec).
+    - Usage: In channel rate triggers (e.g., `Trigger::AvgAbove(Rate::per_seconds(500))`).
+    - Telemetry/Prometheus: In rate metrics (e.g., `avg_rate` in items/sec).
+
+- **`Filled`**: Channel fill level, as percentage or exact count.
+    - Creation: `Filled::percentage(value: f32) -> Option<Filled>` or `Filled::exact(value: u64)`.
+    - Predefined: `Filled::p10()`, `p20()`, ..., `p100()` (percentages).
+    - Usage: In fill triggers (e.g., `Trigger::AvgAbove(Filled::p80())` for >80% full).
+    - Telemetry/Prometheus: In fill metrics (e.g., `avg_filled` as percentage or count).
+
+#### Triggers and Alerts
+Triggers (`Trigger<T>`) define conditions for alerts, using units above. Types:
+- `Trigger::AvgAbove(value)`: Alert if average exceeds value.
+- `Trigger::AvgBelow(value)`: Alert if average falls below value.
+- Colors: `AlertColor::Red` (critical), `Orange` (warning), `Yellow` (caution), `Green` (normal).
+
+#### Computation and Formatting
+Internally, `compute_labels` formats metrics for display:
+- Handles avg/min/max, std dev, percentiles.
+- Adjusts for frame rate/window.
+- Outputs to telemetry strings and Prometheus (if enabled).
+- Custom: Extend via `ComputeLabelsConfig` or override in subclasses for bespoke formatting.
+
+### Customizing Actor Telemetry
+Use `Graph::actor_builder()` to start, then chain `with_*` methods. Focus on CPU/load for actors.
+
+#### Examples
+```rust
+let actor_builder = graph.actor_builder()
+    .with_mcpu_avg()  // Add avg_mCPU metric
+    .with_load_avg()  // Add avg_load metric
+    .with_mcpu_percentile(Percentile::p90())  // 90th percentile CPU
+    .with_load_percentile(Percentile::p99())  // 99th percentile load
+    .with_mcpu_trigger(Trigger::AvgAbove(MCPU::m512()), AlertColor::Red)  // Red alert >50% CPU
+    .with_load_trigger(Trigger::AvgAbove(Work::p80()), AlertColor::Orange)  // Orange >80% load
+    .with_thread_info()  // Show thread/core
+    .with_compute_refresh_window_floor(Duration::from_secs(1), Duration::from_secs(20));  // 1s refresh, 20s window
+```
+
+- **Telemetry Display**: Dashboard shows rows like "Avg mCPU: 300", "90%ile mCPU: 450", with colors for triggers.
+- **Prometheus**: Metrics like `avg_mCPU{actor_name="worker"} 300`, `percentile_mCPU{p=9000} 450`. Set alerts in Prometheus config.
+- **Customization Tips**: Add multiple percentiles for detailed distributions. Use `with_no_refresh_window()` for low-overhead actors.
+
+### Customizing Channel Telemetry
+Use `Graph::channel_builder()` to start. Focus on fill, rate, latency for channels.
+
+#### Examples
+```rust
+let channel_builder = graph.channel_builder()
+    .with_capacity(1024)  // Set buffer size
+    .with_avg_filled()  // Avg fill %
+    .with_filled_max()  // Max fill
+    .with_avg_rate()  // Avg msg/sec
+    .with_rate_max()  // Max rate
+    .with_avg_latency()  // Avg latency ms
+    .with_latency_max()  // Max latency
+    .with_filled_percentile(Percentile::p80())  // 80th percentile fill
+    .with_rate_percentile(Percentile::p95())  // 95th percentile rate
+    .with_latency_percentile(Percentile::p99())  // 99th percentile latency
+    .with_filled_trigger(Trigger::AvgAbove(Filled::p90()), AlertColor::Red)  // Red >90% full
+    .with_rate_trigger(Trigger::AvgBelow(Rate::per_seconds(100)), AlertColor::Yellow)  // Yellow <100/sec
+    .with_latency_trigger(Trigger::AvgAbove(Duration::from_millis(50)), AlertColor::Orange)  // Orange >50ms
+    .with_compute_refresh_window_floor(Duration::from_secs(2), Duration::from_secs(30));  // 2s refresh, 30s window
+```
+
+- **Telemetry Display**: Rows like "Avg filled: 60%", "80%ile rate: 150/sec", with alerts coloring edges in DOT graph.
+- **Prometheus**: Metrics like `avg_filled{from="gen", to="worker"} 60`, `percentile_rate{p=9500} 150`. Use for Grafana panels.
+- **Customization Tips**: For high-throughput, add std devs (e.g., `with_rate_standard_deviation(StdDev::one())`) for variability. Use `with_no_refresh_window()` for silent channels.
+
+### Advanced Customization
+- **Standard Deviations**: Add with `with_*_standard_deviation(StdDev::one())` or `StdDev::two()` for variability metrics (e.g., `std_dev_rate` in Prometheus).
+- **Remote/Distributed**: Use internal `with_remote_details` for labels like `ips`, `direction`.
+- **Extending Metrics**: Subclass `ActorMetaData`/`ChannelMetaData` for custom fields, then expose via `compute_labels` overrides. Add to Prometheus via custom collectors.
+- **Performance**: More metrics increase overhead; profile with tools like `cargo flamegraph`. Set longer windows for smoother aggregates.
+
+For code examples, refer to lessons like `steady-state-standard`. If issues arise, check logs for "InternalError" in histograms.
+
+---
+
 ## 📋 Project Structure
 
 - **generator.rs** – Stateful, backpressure-aware producer
