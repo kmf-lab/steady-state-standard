@@ -1,9 +1,8 @@
 [package]
 name = "standard"
-version = "0.1.4"
+version = "0.2.2"
 edition = "2024"
 
 [dependencies]
-#steady_state     = "0.2.2"
-clap             = { version = "4.5.40", features = ["derive"] }
-steady_state     = { path = "../steady-state-stack/core", features = ["exec_async_std", "telemetry_server_builtin"], default-features = false }
+steady_state     = "0.2.2"
+clap             = { version = "4.5.41", features = ["derive"] }
