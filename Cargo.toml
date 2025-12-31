@@ -1,9 +1,8 @@
 [package]
 name = "standard"
-version = "0.2.4"
+version = "0.2.6"
 edition = "2024"
 
 [dependencies]
-steady_state = "0.2.4"
-
+steady_state     = "0.2.6"
 clap             = { version = "4.5.38", features = ["derive"] }

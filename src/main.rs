@@ -18,22 +18,24 @@ pub(crate) mod actor {//#!#//
 fn main() -> Result<(), Box<dyn Error>> {
 
     let cli_args = MainArg::parse();
-    init_logging(LogLevel::Info)?;
-    let mut graph = GraphBuilder::default()
-        // The default and minimum telemetry frame rate is 40ms. It works well for most cases.
-        //.with_telemtry_production_rate_ms(200) //You can slow it down with this  //#!#//
-        .build(cli_args);
 
-    build_graph(&mut graph);
 
-    // Synchronous startup ensures all actors are ready before proceeding.
-    // This prevents race conditions during initialization and provides
-    // predictable system behavior from the start.
-    graph.start();
-    // Blocking wait with timeout prevents infinite hangs while allowing
-    // graceful shutdown completion. The timeout you set should be larger than
-    // the expected cleanup duration for all actors to avoid premature termination.
-    graph.block_until_stopped(Duration::from_secs(4))
+    SteadyRunner::release_build()
+        .with_stack_size(2 * 1024 * 1024)
+        .with_logging(LogLevel::Info)
+        .run(cli_args, move |mut graph| {
+            build_graph(&mut graph);
+
+            // Synchronous startup ensures all actors are ready before proceeding.
+            // This prevents race conditions during initialization and provides
+            // predictable system behavior from the start.
+            graph.start();
+            // Blocking wait with timeout prevents infinite hangs while allowing
+            // graceful shutdown completion. The timeout you set should be larger than
+            // the expected cleanup duration for all actors to avoid premature termination.
+            graph.block_until_stopped(Duration::from_secs(4))
+        })
+
 }
 
 /// Actor name constants enable refactoring safety and consistent identification.
@@ -129,29 +131,33 @@ pub(crate) mod main_tests {
     #[test]
     fn graph_test() -> Result<(), Box<dyn Error>> {
 
-        //Must build graph for testing or stage_manager will not be available.
-        let mut graph = GraphBuilder::for_testing() //#!#//
-                         .build(MainArg::default());
 
-        // We call the same production code to build the graph here for testing
-        build_graph(&mut graph);
-        graph.start();
+        SteadyRunner::test_build()
+            .with_stack_size(2 * 1024 * 1024)
+            .with_logging(LogLevel::Info)
+            .run(MainArg::default(), move |mut graph| {
+                // We call the same production code to build the graph here for testing
+                build_graph(&mut graph);
+                graph.start();
 
-        // Stage management provides orchestrated testing of multi-actor scenarios.
-        // This enables precise control over actor behavior and verification of
-        // complex system interactions without manual coordination complexity.
-        let stage_manager = graph.stage_manager(); //#!#//
-        // This makes use of the "simulated" actors to mock what they send or expect to receive.
-        stage_manager.actor_perform(NAME_GENERATOR, StageDirection::Echo(15u64))?;
-        stage_manager.actor_perform(NAME_HEARTBEAT, StageDirection::Echo(100u64))?;
-        stage_manager.actor_perform(NAME_LOGGER,    StageWaitFor::Message(FizzBuzzMessage::FizzBuzz
-                                                                          , Duration::from_secs(2)))?;
-        // Must stop stage manager which has been communicating to our simulated actors.
-        stage_manager.final_bow(); //#!#//
+                // Stage management provides orchestrated testing of multi-actor scenarios.
+                // This enables precise control over actor behavior and verification of
+                // complex system interactions without manual coordination complexity.
+                let stage_manager = graph.stage_manager(); //#!#//
+                // This makes use of the "simulated" actors to mock what they send or expect to receive.
+                stage_manager.actor_perform(NAME_GENERATOR, StageDirection::Echo(15u64))?;
+                stage_manager.actor_perform(NAME_HEARTBEAT, StageDirection::Echo(100u64))?;
+                stage_manager.actor_perform(NAME_LOGGER,    StageWaitFor::Message(FizzBuzzMessage::FizzBuzz
+                                                                                  , Duration::from_secs(2)))?;
+                // Must stop stage manager which has been communicating to our simulated actors.
+                stage_manager.final_bow(); //#!#//
 
-        graph.request_shutdown();
+                graph.request_shutdown();
 
-        graph.block_until_stopped(Duration::from_secs(5))
+                graph.block_until_stopped(Duration::from_secs(5))
+            })
+
+
 
     }
 }
