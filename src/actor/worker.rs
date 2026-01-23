@@ -57,7 +57,7 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
     // pass thru the boolean value but also capture and reports which one returned false in the event of an unclean shutdown.
     // NOTE: || starts the closure and is not an OR expression.
 
-    while actor.is_running(                       
+    while actor.is_running( //we only accept shutdown when ALL these are true
                            || i!(heartbeat_rx.is_closed_and_empty())
                            && i!(generator_rx.is_closed_and_empty() /* macro ignores comment */ ) // false &&
                            && i!(logger_tx.mark_closed()) // must be last
@@ -128,7 +128,7 @@ pub(crate) mod worker_tests {
         graph.start();
         // because clean shutdown waits for closed and empty
         // , it does not happen until our test data is digested. 
-        graph.request_shutdown();
+        graph.request_shutdown();// critical before block_until_stopped
         graph.block_until_stopped(Duration::from_secs(1))?;
         assert_steady_rx_eq_take!(&logger_rx, [FizzBuzzMessage::FizzBuzz
                                               ,FizzBuzzMessage::Value(1)

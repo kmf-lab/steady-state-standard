@@ -4,5 +4,7 @@ version = "0.2.6"
 edition = "2024"
 
 [dependencies]
-steady_state     = "0.2.6"
+#steady_state     = "0.2.6"
+steady_state  = {path = "../steady-state-stack/core" }
+
 clap             = { version = "4.5.38", features = ["derive"] }
