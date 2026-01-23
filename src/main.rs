@@ -87,35 +87,38 @@ fn build_graph(graph: &mut Graph) {
         // Values are normalized to 1024 units per core for consistent cross-platform metrics.
         .with_mcpu_avg();//#!#//
 
+    let mut shared_core = graph.actor_troupe();
+
     // State management demonstrates persistent actor behavior across restarts.
     // Each actor maintains independent state that survives crashes, enabling
     // fault-tolerant operation without external persistence mechanisms.
     let state = new_state();
     actor_builder.with_name(NAME_HEARTBEAT)
+        //  note .clone() on lazy is doing a late init of our channel //#!#//
         // It is a very normal pattern to see every channel and state cloned here. This enables us
         // to keep an Arc here for recovery should this actor panic.  //#!#//
         .build(move |actor| actor::heartbeat::run(actor, heartbeat_tx.clone(), state.clone()) 
-               , SoloAct);   //  note .clone() on lazy is doing a late init of our channel //#!#//
+               , MemberOf(&mut shared_core)); // could use SoloAct to isolate this actor
 
     // NOTE: that no type information is needed for state.
     let state = new_state();
     actor_builder.with_name(NAME_GENERATOR)
         .build(move |actor| actor::generator::run(actor, generator_tx.clone(), state.clone()) 
-               , SoloAct);
+               , MemberOf(&mut shared_core)); // could use SoloAct to isolate this actor
 
     // Multi-input actors demonstrate complex data flow coordination.
     // The worker receives timing signals from heartbeat and data from generator,
     // enabling controlled batch processing with predictable timing behavior.
     actor_builder.with_name(NAME_WORKER)
         .build(move |actor| actor::worker::run(actor, heartbeat_rx.clone(), generator_rx.clone(), worker_tx.clone())
-               , SoloAct);
+               , MemberOf(&mut shared_core)); // could use SoloAct to isolate this actor
 
     // Terminal actors focus on external system integration and side effects.
     // Loggers typically have no outgoing channels but provide essential
     // observability and debugging capabilities for system operation.
     actor_builder.with_name(NAME_LOGGER)
         .build(move |actor| actor::logger::run(actor, worker_rx.clone())
-               , SoloAct);
+               , MemberOf(&mut shared_core)); // could use SoloAct to isolate this actor
 }
 
 /// Integration testing module demonstrates end-to-end system validation.

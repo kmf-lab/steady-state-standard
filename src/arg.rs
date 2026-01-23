@@ -13,7 +13,7 @@ pub(crate) struct MainArg {
     /// Lifecycle control parameter for automated termination.
     /// This enables demo runs, batch processing limits, and testing scenarios
     /// that need predictable completion behavior.
-    #[arg(short = 'b', long = "beats", default_value = "60")]
+    #[arg(short = 'b', long = "beats", default_value = "120")]
     pub(crate) beats: u64,
 }
 
@@ -24,7 +24,7 @@ impl Default for MainArg { //#!#//
     fn default() -> Self {
         MainArg {
             rate_ms: 1000,
-            beats: 60,
+            beats: 120,
         }
     }
 }
