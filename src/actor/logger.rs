@@ -22,7 +22,8 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
     // Termination condition waits for channel closure and message drainage.
     // This ensures all messages are processed before the actor terminates,
     // preventing data loss during shutdown sequences.
-    while actor.is_running(|| rx.is_closed_and_empty()) {
+    while actor.is_running(|| rx.is_closed_and_empty() //when true accepts shutdown
+    ) {
         // This is important as it drops CPU usage to zero if we have no work to do.
         await_for_all!(actor.wait_avail(&mut rx, 1)); //#!#//
         
@@ -63,7 +64,7 @@ fn test_logger() -> Result<(), Box<dyn std::error::Error>> {
     // for precise control over actor input during verification.
     fizz_buzz_tx.testing_send_all(vec![FizzBuzzMessage::Fizz],true);
 
-    graph.request_shutdown();
+    graph.request_shutdown(); //essential to finish running test
     graph.block_until_stopped(Duration::from_secs(10000))?;
     // Log assertion macros enable verification of logging behavior
     // across multi-threaded execution environments.

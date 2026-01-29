@@ -37,7 +37,8 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
     let mut heartbeat_tx = heartbeat_tx.lock().await;
 
     // Shutdown coordination with proper channel cleanup signaling.
-    while actor.is_running(|| heartbeat_tx.mark_closed()) {
+    while actor.is_running(|| heartbeat_tx.mark_closed() //true accept any shutdown
+    ) {
         // Synchronized waiting demonstrates multi-condition coordination.
         // await_for_all! it ensures both timing requirements and channel capacity
         // are satisfied before proceeding, preventing timing drift and overflow.
@@ -85,7 +86,7 @@ pub(crate) mod heartbeat_tests {
         // Timing-based testing requires careful coordination between test duration
         // and expected actor behavior to ensure deterministic results.
         std::thread::sleep(Duration::from_millis(1000 * 3));
-        graph.request_shutdown();
+        graph.request_shutdown(); //required for tests to not block
         graph.block_until_stopped(Duration::from_secs(1))?;
         assert_steady_rx_eq_take!(&heartbeat_rx, vec!(0,1));
         Ok(())
