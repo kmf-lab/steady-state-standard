@@ -36,7 +36,8 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
             // The framework automatically handles log formatting, threading,
             // and output routing based on configuration. 
             info!("Msg {:?}", msg );
-        }        
+        }
+
     }
     Ok(())
 }

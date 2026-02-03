@@ -40,14 +40,16 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
     // Shutdown coordination: mark_closed() signals downstream actors that no more data will come
     // after the current data in flight. This enables clean pipeline termination without dropping
     // messages in transit.
-    while actor.is_running(|| generated_tx.mark_closed()) { //#!#// true to accept any shutdown
+    while actor.is_running(|| generated_tx.mark_closed() )  { //#!#// true to accept any shutdown
         // SendSaturation::AwaitForRoom provides automatic backpressure management.
         // The actor will pause here if the receiving channel is full, preventing memory exhaustion
         // while maintaining data ordering and system stability. AwaitForRoom will return 
         // immediately if a shutdown signal is received.
         match actor.send_async(&mut generated_tx, state.value, SendSaturation::AwaitForRoom).await { //#!#//
             SendOutcome::Success => state.value += 1,
-            SendOutcome::Blocked(_value) => {} // Only happens on shutdown 
+            SendOutcome::Blocked(_value) => {},
+            SendOutcome::Closed(_value)=>{},
+            SendOutcome::Timeout(_value)=>{}
         };
     }
     Ok(())

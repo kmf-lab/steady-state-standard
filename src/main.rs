@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             // Blocking wait with timeout prevents infinite hangs while allowing
             // graceful shutdown completion. The timeout you set should be larger than
             // the expected cleanup duration for all actors to avoid premature termination.
-            graph.block_until_stopped(Duration::from_secs(4))
+            graph.block_until_stopped(Duration::from_secs(15))
         })
 
 }
@@ -98,27 +98,27 @@ fn build_graph(graph: &mut Graph) {
         // It is a very normal pattern to see every channel and state cloned here. This enables us
         // to keep an Arc here for recovery should this actor panic.  //#!#//
         .build(move |actor| actor::heartbeat::run(actor, heartbeat_tx.clone(), state.clone()) 
-               , MemberOf(&mut shared_core)); // could use SoloAct to isolate this actor
+               , SoloAct);// MemberOf(&mut shared_core)); // could use troupe if desired
 
     // NOTE: that no type information is needed for state.
     let state = new_state();
     actor_builder.with_name(NAME_GENERATOR)
         .build(move |actor| actor::generator::run(actor, generator_tx.clone(), state.clone()) 
-               , MemberOf(&mut shared_core)); // could use SoloAct to isolate this actor
+               , SoloAct);// MemberOf(&mut shared_core)); // could use SoloAct to isolate this actor
 
     // Multi-input actors demonstrate complex data flow coordination.
     // The worker receives timing signals from heartbeat and data from generator,
     // enabling controlled batch processing with predictable timing behavior.
     actor_builder.with_name(NAME_WORKER)
         .build(move |actor| actor::worker::run(actor, heartbeat_rx.clone(), generator_rx.clone(), worker_tx.clone())
-               , MemberOf(&mut shared_core)); // could use SoloAct to isolate this actor
+               ,SoloAct);// MemberOf(&mut shared_core)); // could use SoloAct to isolate this actor
 
     // Terminal actors focus on external system integration and side effects.
     // Loggers typically have no outgoing channels but provide essential
     // observability and debugging capabilities for system operation.
     actor_builder.with_name(NAME_LOGGER)
         .build(move |actor| actor::logger::run(actor, worker_rx.clone())
-               , MemberOf(&mut shared_core)); // could use SoloAct to isolate this actor
+               ,SoloAct);// MemberOf(&mut shared_core)); // could use SoloAct to isolate this actor
 }
 
 /// Integration testing module demonstrates end-to-end system validation.

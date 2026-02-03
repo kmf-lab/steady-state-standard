@@ -1,11 +1,9 @@
 [package]
 name = "standard"
-version = "0.2.9"
+version = "0.2.10"
 edition = "2024"
 
 [dependencies]
-#steady_state  = {path = "Z:\\kmf-lab\\steady-state-stack\\core"}
-#steady_state  = {path = "../steady-state-stack/core" }
-steady_state     = "0.2.9"
+steady_state     = "0.2.10"
 
 clap             = { version = "4.5", features = ["derive"] }

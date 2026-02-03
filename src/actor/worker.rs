@@ -1,3 +1,4 @@
+use std::thread::yield_now;
 use steady_state::*;
 
 // Over designed this enum is. much to learn here we have.
@@ -59,8 +60,8 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
 
     while actor.is_running( //we only accept shutdown when ALL these are true
                            || i!(heartbeat_rx.is_closed_and_empty())
-                           && i!(generator_rx.is_closed_and_empty() /* macro ignores comment */ ) // false &&
-                           && i!(logger_tx.mark_closed()) // must be last
+                           && i!(generator_rx.is_closed_and_empty())
+                           && i!(logger_tx.mark_closed())                 // must be last
                          ) {                 //#!#//
 
         // There are many ways to design an actor, but this is the standard approach to use as the default.
@@ -87,10 +88,9 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
         if actor.try_take(&mut heartbeat_rx).is_some() || !clean { //#!#//
             //check for how much work and how much room we have before we begin
             let mut items = actor.avail_units(&mut generator_rx).min(actor.vacant_units(&mut logger_tx));           
-            while items>0 {                
-                let item = actor.try_take(&mut generator_rx).expect("internal error");
-                // could check is_send or use .expect because we know there is room
-                actor.try_send(&mut logger_tx, FizzBuzzMessage::new(item)).expect("internal error");
+            while items>0 {
+                let item = actor.try_take(&mut generator_rx).expect("confirmed available but not found !!");
+                actor.send_async(&mut logger_tx, FizzBuzzMessage::new(item),SendSaturation::AwaitForRoom).await;
                 items -= 1;
             }
         }
