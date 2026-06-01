@@ -87,7 +87,7 @@ fn build_graph(graph: &mut Graph) {
         // Values are normalized to 1024 units per core for consistent cross-platform metrics.
         .with_mcpu_avg();//#!#//
 
-    let mut shared_core = graph.actor_troupe();
+    //let mut shared_core = graph.actor_troupe(); //if desired we could use troupe
 
     // State management demonstrates persistent actor behavior across restarts.
     // Each actor maintains independent state that survives crashes, enabling
@@ -154,6 +154,7 @@ pub(crate) mod main_tests {
                                                                                   , Duration::from_secs(2)))?;
                 // Must stop stage manager which has been communicating to our simulated actors.
                 stage_manager.final_bow(); //#!#//
+
 
                 graph.request_shutdown();
 
