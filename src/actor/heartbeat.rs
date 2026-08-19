@@ -33,8 +33,8 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
 
     // lock our state and init if it has not been initialized yet
     // upon panic and restart this same state with no data loss will be restored
-    let mut state = state.lock(|| HeartbeatState{ count: 0}).await;
-    let mut heartbeat_tx = heartbeat_tx.lock().await;
+    let mut state = state.acquire_guard(|| HeartbeatState{ count: 0}).await;
+    let mut heartbeat_tx = heartbeat_tx.acquire_guard().await;
 
     // Shutdown coordination with proper channel cleanup signaling.
     while actor.is_running(|| heartbeat_tx.mark_closed() //true accept any shutdown

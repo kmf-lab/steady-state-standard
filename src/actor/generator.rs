@@ -33,9 +33,9 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
 
     // State locking provides thread-safe access with automatic initialization.
     // The closure runs only if no state exists, ensuring consistent startup behavior.
-    let mut state = state.lock(|| GeneratorState {value: 0}).await; //#!#//
+    let mut state = state.acquire_guard(|| GeneratorState {value: 0}).await; //#!#//
     // Channel is locked to this actor instance on startup. On panic/restart we will re-acquire the lock.
-    let mut generated_tx = generated_tx.lock().await;
+    let mut generated_tx = generated_tx.acquire_guard().await;
 
     // Shutdown coordination: mark_closed() signals downstream actors that no more data will come
     // after the current data in flight. This enables clean pipeline termination without dropping

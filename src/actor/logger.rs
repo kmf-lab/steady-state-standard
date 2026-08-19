@@ -18,7 +18,7 @@ pub async fn run(actor: SteadyActorShadow, fizz_buzz_rx: SteadyRx<FizzBuzzMessag
 /// making it ideal for logging, monitoring, and real-time notification systems.
 async fn internal_behavior<A: SteadyActor>(mut actor: A
                                            , rx: SteadyRx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
-    let mut rx = rx.lock().await;
+    let mut rx = rx.acquire_guard().await;
     // Termination condition waits for channel closure and message drainage.
     // This ensures all messages are processed before the actor terminates,
     // preventing data loss during shutdown sequences.

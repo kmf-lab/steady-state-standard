@@ -157,7 +157,8 @@ pub(crate) mod main_tests {
 
 
                 graph.request_shutdown();
-
+                // block_until_stopped will wait forever until request_shutdown has been called
+                // once that happens then the shutdown timeout begins.
                 graph.block_until_stopped(Duration::from_secs(5))
             })
 

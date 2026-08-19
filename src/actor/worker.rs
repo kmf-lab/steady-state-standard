@@ -46,9 +46,9 @@ async fn internal_behavior<A: SteadyActor>(mut actor: A
                                            , logger_tx: SteadyTx<FizzBuzzMessage>) -> Result<(),Box<dyn Error>> {
 
     // Very standard pattern to lock the actor's resources for exclusive use.  //#!#//
-    let mut heartbeat_rx = heartbeat_rx.lock().await;
-    let mut generator_rx = generator_rx.lock().await;
-    let mut logger_tx = logger_tx.lock().await;
+    let mut heartbeat_rx = heartbeat_rx.acquire_guard().await;
+    let mut generator_rx = generator_rx.acquire_guard().await;
+    let mut logger_tx = logger_tx.acquire_guard().await;
 
     // When a shutdown is requested, is_running will call the closure to determine if this actor will accept or veto the shutdown.
     // If the closure returns true then the shutdown was accepted, and we will exit the while loop.  It is typical to use
